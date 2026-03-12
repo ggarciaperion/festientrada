@@ -296,10 +296,10 @@ export default function Home() {
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mt-10">
-            <Link href="/comprar" className="btn-primary text-base px-8 py-3.5">
+            <a href="#mapa" className="btn-primary text-base px-8 py-3.5">
               Comprar Entradas
-            </Link>
-            <a href="#zonas" className="btn-secondary text-base px-8 py-3.5">
+            </a>
+            <a href="#mapa" className="btn-secondary text-base px-8 py-3.5">
               Ver Zonas y Precios
             </a>
           </div>

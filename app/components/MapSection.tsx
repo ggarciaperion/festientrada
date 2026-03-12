@@ -51,48 +51,57 @@ function IconLock() {
     </svg>
   );
 }
+function IconArrow() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
 
 // ── Venue SVG Map ────────────────────────────────────────────
-function VenueMap({ boxes, onBoxClick }: { boxes: Box[]; onBoxClick: (box: Box) => void }) {
+function VenueMap({
+  boxes,
+  onBoxClick,
+  pendingBoxId,
+}: {
+  boxes: Box[];
+  onBoxClick: (box: Box) => void;
+  pendingBoxId?: string | null;
+}) {
+  // Pending selection color: blue
+  const PENDING = { fill: '#1e3a5f', stroke: '#60a5fa', text: '#93c5fd' };
+
   return (
     <svg
       viewBox="0 0 620 620"
-      className="w-full max-w-2xl mx-auto select-none"
-      style={{ fontFamily: 'var(--font-inter), sans-serif' }}
+      className="w-full select-none"
+      style={{ fontFamily: 'var(--font-inter), sans-serif', touchAction: 'manipulation' }}
     >
       {/* Outer venue */}
       <rect x="30" y="20" width="560" height="570" rx="4" fill="#0d0d1a" stroke="#334155" strokeWidth="1.5" />
 
       {/* ── TOP STRIP ── */}
-      {/* BAÑOS: x=30–115 */}
       <rect x="30"  y="20" width="85"  height="50" fill="#1e293b" stroke="#334155" strokeWidth="1" />
       <text x="72"  y="49" textAnchor="middle" fontSize="9" fill="#64748b" fontWeight="700" letterSpacing="1">BAÑOS</text>
 
-      {/* BARRA: x=115–220 (extended to meet new divider) */}
       <rect x="115" y="20" width="105" height="50" fill="#1e293b" stroke="#334155" strokeWidth="1" />
       <text x="168" y="49" textAnchor="middle" fontSize="9" fill="#64748b" fontWeight="700" letterSpacing="1">BARRA</text>
 
-      {/* ESCENARIO: x=220–590, h=50 — SOLO texto "ESCENARIO", sin precios */}
       <rect x="220" y="20" width="370" height="50" rx="4" fill="#1a1209" stroke="#D4A017" strokeWidth="1.5" />
       <text x="405" y="50" textAnchor="middle" fontSize="14" fill="#D4A017" fontWeight="800" letterSpacing="3">ESCENARIO</text>
 
       {/* ── DIVIDERS ── */}
-      {/* Vertical divider Malecón / Platinum+VIP: movida a x=220 */}
-      <line x1="220" y1="70" x2="220" y2="395" stroke="#334155" strokeWidth="1" strokeDasharray="4 3" />
+      <line x1="220" y1="70"  x2="220" y2="395" stroke="#334155" strokeWidth="1" strokeDasharray="4 3" />
       <line x1="30"  y1="395" x2="590" y2="395" stroke="#334155" strokeWidth="1" />
 
-
-      {/* ── BOX MALECÓN vertical label (centrado en sección x=30–220) ── */}
-      <text
-        x="186" y="265"
-        fontSize="9" fill="#0ea5e9" fontWeight="700" letterSpacing="2"
-        textAnchor="middle"
-        transform="rotate(-90, 186, 265)"
-      >
+      {/* BOX MALECÓN vertical label */}
+      <text x="186" y="265" fontSize="9" fill="#0ea5e9" fontWeight="700" letterSpacing="2"
+        textAnchor="middle" transform="rotate(-90, 186, 265)">
         BOX MALECÓN
       </text>
 
-      {/* ── PLATINUM section header (fuera del ESCENARIO, y=70–88) ── */}
+      {/* ── PLATINUM header ── */}
       <rect x="220" y="70" width="370" height="18" fill="#1a1209" />
       <text x="405" y="83" textAnchor="middle" fontSize="8.5" fill="#D4A017" fontWeight="700" letterSpacing="1.5">
         ★  PLATINUM — Box S/{BOX_PRICES.platinum.full}  ·  Entrada individual S/{BOX_PRICES.platinum.individual}
@@ -101,7 +110,7 @@ function VenueMap({ boxes, onBoxClick }: { boxes: Box[]; onBoxClick: (box: Box) 
       {/* ── Separador Platinum / VIP ── */}
       <line x1="220" y1="226" x2="590" y2="226" stroke="#334155" strokeWidth="1" strokeDasharray="4 3" />
 
-      {/* ── VIP section header (y=233–247) ── */}
+      {/* ── VIP header ── */}
       <rect x="220" y="233" width="370" height="14" fill="#0f0520" />
       <text x="405" y="244" textAnchor="middle" fontSize="8.5" fill="#a855f7" fontWeight="700" letterSpacing="1.5">
         VIP — Box S/{BOX_PRICES.vip.full}  ·  Entrada individual S/{BOX_PRICES.vip.individual}
@@ -113,26 +122,24 @@ function VenueMap({ boxes, onBoxClick }: { boxes: Box[]; onBoxClick: (box: Box) 
       <text x="310" y="482" textAnchor="middle" fontSize="10" fill="#1e293b">Acceso libre · Zona pista</text>
 
       {/* ── BOTTOM STRIP ── */}
-      <rect x="30"  y="520" width="95" height="70" fill="#1e293b" stroke="#334155" strokeWidth="1" />
+      <rect x="30"  y="520" width="95"  height="70" fill="#1e293b" stroke="#334155" strokeWidth="1" />
       <text x="77"  y="559" textAnchor="middle" fontSize="9" fill="#64748b" fontWeight="700" letterSpacing="1">ENTRADA</text>
-
       <rect x="210" y="520" width="130" height="70" fill="#1e293b" stroke="#334155" strokeWidth="1" />
       <text x="275" y="559" textAnchor="middle" fontSize="9" fill="#64748b" fontWeight="700" letterSpacing="1">BARRA</text>
-
       <rect x="455" y="520" width="135" height="70" fill="#1e293b" stroke="#334155" strokeWidth="1" />
       <text x="522" y="559" textAnchor="middle" fontSize="9" fill="#64748b" fontWeight="700" letterSpacing="1">BAÑOS</text>
 
-      {/* PLAYA label outside left */}
       <text x="16" y="280" textAnchor="middle" fontSize="9" fill="#1e293b" fontWeight="700" letterSpacing="2"
         transform="rotate(-90, 16, 280)">PLAYA</text>
 
       {/* ── BOX SHAPES ── */}
       {boxes.map(box => {
-        const pos    = getBoxSVGPos(box);
-        const colors = STATUS_COLORS[box.status];
-        const cx     = pos.x + pos.w / 2;
-        const cy     = pos.y + pos.h / 2;
+        const pos       = getBoxSVGPos(box);
+        const isPending = pendingBoxId === box.id;
+        const colors    = isPending ? PENDING : STATUS_COLORS[box.status];
         const isClickable = box.status === 'available';
+        const cx = pos.x + pos.w / 2;
+        const cy = pos.y + pos.h / 2;
 
         return (
           <g
@@ -142,8 +149,17 @@ function VenueMap({ boxes, onBoxClick }: { boxes: Box[]; onBoxClick: (box: Box) 
           >
             <rect
               x={pos.x} y={pos.y} width={pos.w} height={pos.h} rx="2"
-              fill={colors.fill} stroke={colors.stroke} strokeWidth="1.2"
+              fill={colors.fill} stroke={colors.stroke}
+              strokeWidth={isPending ? 2 : 1.2}
             />
+            {isPending && (
+              <rect
+                x={pos.x - 2} y={pos.y - 2}
+                width={pos.w + 4} height={pos.h + 4} rx="4"
+                fill="none" stroke="#60a5fa" strokeWidth="1.5" strokeOpacity="0.5"
+                strokeDasharray="3 2"
+              />
+            )}
             <text x={cx} y={cy + 3} textAnchor="middle" fontSize="7.5" fill={colors.text} fontWeight="700">
               {box.id}
             </text>
@@ -194,7 +210,7 @@ function BoxModal({
     return () => clearInterval(id);
   }, [isReservedByMe, onClose]);
 
-  const prices    = BOX_PRICES[box.zone];
+  const prices     = BOX_PRICES[box.zone];
   const totalPrice = purchaseType === 'full' ? prices.full : entries * prices.individual;
 
   const validate = () => {
@@ -206,10 +222,7 @@ function BoxModal({
     return e;
   };
 
-  const handleReserve = () => {
-    onReserve();
-    setStep('form');
-  };
+  const handleReserve = () => { onReserve(); setStep('form'); };
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -237,17 +250,17 @@ function BoxModal({
   const zoneLabel = ZONE_COLORS[box.zone].label;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="relative w-full max-w-md bg-[#111122] border border-white/10 rounded-2xl overflow-hidden">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="relative w-full sm:max-w-md bg-[#111122] border border-white/10 rounded-t-2xl sm:rounded-2xl overflow-hidden max-h-[92vh] flex flex-col">
 
         {/* Reservation countdown bar */}
         {isReservedByMe && step !== 'success' && (
-          <div className="h-1 bg-amber-500 transition-all duration-1000"
+          <div className="h-1 bg-amber-500 transition-all duration-1000 shrink-0"
             style={{ width: `${(timeLeft / RESERVATION_MS) * 100}%` }} />
         )}
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/6">
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-white/6 shrink-0">
           <div>
             <span className="text-xs font-bold uppercase tracking-widest" style={{ color: zoneColor }}>
               {zoneLabel}
@@ -260,13 +273,14 @@ function BoxModal({
                 <IconTimer /> {fmtMs(timeLeft)}
               </span>
             )}
-            <button onClick={onClose} className="text-slate-500 hover:text-white transition">
+            <button onClick={onClose} className="text-slate-500 hover:text-white transition p-1">
               <IconClose />
             </button>
           </div>
         </div>
 
-        <div className="px-6 py-5">
+        {/* Scrollable body */}
+        <div className="px-5 py-5 overflow-y-auto flex-1">
 
           {/* ── STEP: detail ── */}
           {step === 'detail' && (
@@ -286,7 +300,6 @@ function BoxModal({
 
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Tipo de compra</p>
               <div className="grid grid-cols-2 gap-3 mb-5">
-                {/* Box completo */}
                 <button
                   onClick={() => setPurchaseType('full')}
                   className={`p-4 rounded-xl border-2 text-left transition-all ${
@@ -295,12 +308,11 @@ function BoxModal({
                       : 'border-white/8 hover:border-white/18'
                   }`}
                 >
-                  <p className="font-bold text-white text-sm mb-1">Box completo</p>
+                  <p className="font-bold text-white text-sm mb-1">Box 8 personas</p>
                   <p className="text-xs text-slate-400 mb-2">{box.capacity} personas</p>
                   <p className="font-heading font-black text-amber-400 text-xl">S/ {prices.full}</p>
                 </button>
 
-                {/* Entrada individual */}
                 <button
                   onClick={() => setPurchaseType('individual')}
                   className={`p-4 rounded-xl border-2 text-left transition-all ${
@@ -318,20 +330,19 @@ function BoxModal({
                 </button>
               </div>
 
-              {/* Quantity selector (individual only) */}
               {purchaseType === 'individual' && (
                 <div className="flex items-center gap-4 mb-5 bg-white/[0.02] rounded-xl px-4 py-3 border border-white/6">
                   <span className="text-sm text-slate-400 flex-1">Entradas individuales:</span>
                   <button onClick={() => setEntries(e => Math.max(1, e - 1))}
-                    className="w-8 h-8 rounded-lg border border-white/10 text-white hover:bg-white/5 transition text-lg">–</button>
+                    className="w-10 h-10 rounded-lg border border-white/10 text-white hover:bg-white/5 transition text-lg">–</button>
                   <span className="font-heading font-black text-xl text-white w-6 text-center tabular-nums">{entries}</span>
                   <button onClick={() => setEntries(e => Math.min(box.entriesAvailable, e + 1))}
-                    className="w-8 h-8 rounded-lg border border-white/10 text-white hover:bg-white/5 transition text-lg">+</button>
+                    className="w-10 h-10 rounded-lg border border-white/10 text-white hover:bg-white/5 transition text-lg">+</button>
                   <span className="text-sm font-bold text-amber-400 ml-1">S/ {entries * prices.individual}</span>
                 </div>
               )}
 
-              <button onClick={handleReserve} className="btn-primary w-full justify-center">
+              <button onClick={handleReserve} className="btn-primary w-full justify-center py-4 text-base">
                 Reservar —{' '}
                 {purchaseType === 'full'
                   ? 'Box completo'
@@ -350,7 +361,7 @@ function BoxModal({
               <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mb-4 flex items-center gap-2">
                 <IconTimer />
                 <span className="text-amber-400 text-sm font-semibold">
-                  Box reservado — <strong className="tabular-nums">{fmtMs(timeLeft)}</strong> para completar la compra
+                  Box reservado — <strong className="tabular-nums">{fmtMs(timeLeft)}</strong> para completar
                 </span>
               </div>
 
@@ -371,7 +382,7 @@ function BoxModal({
                           : e.target.value;
                         (set as (v: string) => void)(v);
                       }}
-                      className={`form-input text-sm ${errors[id] ? 'form-input-error' : ''}`}
+                      className={`form-input text-sm py-3 ${errors[id] ? 'form-input-error' : ''}`}
                     />
                     {errors[id] && <p className="text-[11px] text-rose-400 mt-1">{errors[id]}</p>}
                   </div>
@@ -379,14 +390,12 @@ function BoxModal({
               </div>
 
               <div className="flex gap-3">
-                <button
-                  type="button"
+                <button type="button"
                   onClick={() => { boxService.releaseReservation(box.id); setStep('detail'); }}
-                  className="btn-secondary flex-1 py-3 text-sm"
-                >
+                  className="btn-secondary flex-1 py-3.5 text-sm">
                   Cancelar
                 </button>
-                <button type="submit" className="btn-primary flex-1 py-3 text-sm justify-center">
+                <button type="submit" className="btn-primary flex-1 py-3.5 text-sm justify-center">
                   Continuar →
                 </button>
               </div>
@@ -420,9 +429,9 @@ function BoxModal({
 
               <div className="flex gap-3">
                 <button onClick={() => setStep('form')} disabled={processing}
-                  className="btn-secondary flex-1 py-3 text-sm disabled:opacity-40">Editar</button>
+                  className="btn-secondary flex-1 py-3.5 text-sm disabled:opacity-40">Editar</button>
                 <button onClick={handleConfirm} disabled={processing}
-                  className="btn-primary flex-1 py-3 text-sm justify-center disabled:opacity-60">
+                  className="btn-primary flex-1 py-3.5 text-sm justify-center disabled:opacity-60">
                   {processing ? <><IconSpin /> Procesando...</> : 'Confirmar pago'}
                 </button>
               </div>
@@ -443,12 +452,11 @@ function BoxModal({
               <p className="text-slate-500 text-xs mb-6">
                 Confirmación enviada a <strong className="text-slate-300">{email}</strong>
               </p>
-              <button onClick={onComplete} className="btn-primary w-full justify-center">
+              <button onClick={onComplete} className="btn-primary w-full justify-center py-4">
                 Ver mapa actualizado
               </button>
             </div>
           )}
-
         </div>
       </div>
     </div>
@@ -458,8 +466,9 @@ function BoxModal({
 // ── MapSection — embeddable in any page ──────────────────────
 export default function MapSection() {
   const [boxes,         setBoxes]         = useState<Box[]>([]);
-  const [selectedBox,   setSelectedBox]   = useState<Box | null>(null);
-  const [reservedMs,    setReservedMs]     = useState(0);
+  const [pendingBox,    setPendingBox]    = useState<Box | null>(null);   // clicked, awaiting confirm
+  const [selectedBox,   setSelectedBox]   = useState<Box | null>(null);   // modal open
+  const [reservedMs,    setReservedMs]    = useState(0);
   const [myReservedBox, setMyReservedBox] = useState<Box | null>(null);
   const [mounted,       setMounted]       = useState(false);
 
@@ -471,13 +480,11 @@ export default function MapSection() {
 
   useEffect(() => { setMounted(true); load(); }, [load]);
 
-  // Poll every 5 s (multi-tab sync)
   useEffect(() => {
     const id = setInterval(load, 5000);
     return () => clearInterval(id);
   }, [load]);
 
-  // Countdown for floating nav timer
   useEffect(() => {
     if (!myReservedBox) return;
     const id = setInterval(() => {
@@ -488,20 +495,36 @@ export default function MapSection() {
     return () => clearInterval(id);
   }, [myReservedBox, load]);
 
-  const handleBoxClick  = (box: Box) => { setSelectedBox(box); setReservedMs(boxService.getMyReservationMs()); };
+  // Click on box → mark as pending (highlight), don't open modal yet
+  const handleBoxClick = (box: Box) => {
+    if (pendingBox?.id === box.id) {
+      // Second click on same box → open modal directly
+      openModal(box);
+      return;
+    }
+    setPendingBox(box);
+  };
+
+  const openModal = (box: Box) => {
+    setSelectedBox(box);
+    setReservedMs(boxService.getMyReservationMs());
+    setPendingBox(null);
+  };
+
   const handleReserve   = () => { if (!selectedBox) return; boxService.reserveBox(selectedBox.id); load(); setReservedMs(boxService.getMyReservationMs()); setMyReservedBox(boxService.getMyReservedBox()); };
   const handleClose     = () => { setSelectedBox(null); load(); };
   const handleComplete  = () => { setSelectedBox(null); setMyReservedBox(null); load(); };
 
-  const stats = mounted ? boxService.getStats() : { available: 0, reserved: 0, sold: 0, totalBoxes: 0 };
+  const pendingZone   = pendingBox ? ZONE_COLORS[pendingBox.zone] : null;
+  const pendingPrices = pendingBox ? BOX_PRICES[pendingBox.zone] : null;
 
   return (
     <>
-      {/* Floating timer in page (shown when user has an active reservation) */}
+      {/* Floating timer */}
       {mounted && myReservedBox && reservedMs > 0 && (
         <div className="mb-4 flex justify-center">
           <button
-            onClick={() => setSelectedBox(myReservedBox)}
+            onClick={() => openModal(myReservedBox)}
             className="flex items-center gap-2 bg-amber-500/15 border border-amber-500/30 rounded-full px-5 py-2 text-amber-400 text-sm font-semibold hover:bg-amber-500/20 transition animate-pulse"
           >
             <IconTimer />
@@ -510,12 +533,12 @@ export default function MapSection() {
         </div>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-8 items-start">
+      <div className="grid lg:grid-cols-3 gap-6 lg:gap-8 items-start">
 
-        {/* ── Map ── */}
+        {/* ── Map column ── */}
         <div className="lg:col-span-2">
           {/* Legend */}
-          <div className="flex flex-wrap gap-5 mb-3 justify-center">
+          <div className="flex flex-wrap gap-4 mb-3 justify-center">
             {(Object.entries(STATUS_COLORS) as [BoxStatus, typeof STATUS_COLORS[BoxStatus]][]).map(([s, c]) => (
               <div key={s} className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-sm border" style={{ background: c.fill, borderColor: c.stroke }} />
@@ -524,20 +547,115 @@ export default function MapSection() {
                 </span>
               </div>
             ))}
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-sm border" style={{ background: '#1e3a5f', borderColor: '#60a5fa' }} />
+              <span className="text-xs text-blue-400">Seleccionado</span>
+            </div>
           </div>
 
-          <div className="card p-3 sm:p-5">
-            {mounted
-              ? <VenueMap boxes={boxes} onBoxClick={handleBoxClick} />
-              : <div className="flex items-center justify-center h-72">
-                  <div className="w-8 h-8 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
-                </div>
-            }
+          {/* Map — horizontally scrollable on mobile */}
+          <div className="card p-3 sm:p-4">
+            <div className="overflow-x-auto -mx-1 px-1">
+              <div style={{ minWidth: '320px' }}>
+                {mounted
+                  ? <VenueMap boxes={boxes} onBoxClick={handleBoxClick} pendingBoxId={pendingBox?.id} />
+                  : <div className="flex items-center justify-center h-64 sm:h-72">
+                      <div className="w-8 h-8 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+                    </div>
+                }
+              </div>
+            </div>
           </div>
+
+          {/* Mobile confirm bar — shown below map on small screens */}
+          {pendingBox && (
+            <div className="lg:hidden mt-3 card p-4 border-blue-500/30" style={{ borderColor: '#3b82f680' }}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs text-slate-500 mb-0.5">Box seleccionado</p>
+                  <p className="font-heading font-black text-white text-lg leading-none">
+                    {pendingBox.id}
+                    <span className="text-sm font-normal ml-2" style={{ color: pendingZone?.stroke }}>
+                      {pendingZone?.label}
+                    </span>
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Desde S/ {pendingPrices?.individual} · Box completo S/ {pendingPrices?.full}
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 shrink-0">
+                  <button
+                    onClick={() => openModal(pendingBox)}
+                    className="btn-primary py-3 px-5 text-sm whitespace-nowrap flex items-center gap-1.5"
+                  >
+                    Continuar <IconArrow />
+                  </button>
+                  <button
+                    onClick={() => setPendingBox(null)}
+                    className="text-xs text-slate-500 hover:text-slate-300 transition text-center"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Side panel ── */}
         <div className="space-y-4">
+
+          {/* Confirm box panel — desktop only, shown when a box is pending */}
+          {pendingBox ? (
+            <div
+              className="hidden lg:block card p-5 border-2 transition-all"
+              style={{ borderColor: '#3b82f680' }}
+            >
+              <p className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-3">Box seleccionado</p>
+              <div className="flex items-center gap-3 mb-4">
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center font-heading font-black text-white text-lg"
+                  style={{ background: `${pendingZone?.stroke}22`, border: `1.5px solid ${pendingZone?.stroke}55` }}
+                >
+                  {pendingBox.id}
+                </div>
+                <div>
+                  <p className="font-bold text-white">{pendingBox.id}</p>
+                  <p className="text-sm font-semibold" style={{ color: pendingZone?.stroke }}>{pendingZone?.label}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <div className="bg-white/[0.03] rounded-lg p-2.5 text-center border border-white/5">
+                  <p className="text-[10px] text-slate-500 mb-0.5">Box 8 personas</p>
+                  <p className="font-bold text-white text-sm">S/ {pendingPrices?.full}</p>
+                </div>
+                <div className="bg-white/[0.03] rounded-lg p-2.5 text-center border border-white/5">
+                  <p className="text-[10px] text-slate-500 mb-0.5">Entrada individual</p>
+                  <p className="font-bold text-white text-sm">S/ {pendingPrices?.individual}</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => openModal(pendingBox)}
+                className="btn-primary w-full justify-center py-3.5 text-base flex items-center gap-2"
+              >
+                Continuar con este box <IconArrow />
+              </button>
+              <button
+                onClick={() => setPendingBox(null)}
+                className="w-full text-center text-xs text-slate-500 hover:text-slate-300 transition mt-2 py-1"
+              >
+                Cancelar selección
+              </button>
+            </div>
+          ) : (
+            /* Idle state: hint card */
+            <div className="hidden lg:block card p-5 border border-dashed border-white/10">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Selecciona tu box</p>
+              <p className="text-slate-500 text-sm">Haz click en un box verde del mapa para ver sus detalles y precio.</p>
+            </div>
+          )}
 
           {/* Zone prices */}
           <div className="card p-5">
@@ -545,11 +663,9 @@ export default function MapSection() {
             <div className="space-y-4">
               {(['platinum', 'vip', 'malecon'] as BoxZone[]).map(zone => (
                 <div key={zone}>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-bold uppercase tracking-wider" style={{ color: ZONE_COLORS[zone].stroke }}>
-                      {ZONE_COLORS[zone].label}
-                    </p>
-                  </div>
+                  <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: ZONE_COLORS[zone].stroke }}>
+                    {ZONE_COLORS[zone].label}
+                  </p>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-white/[0.03] rounded-lg p-2.5 text-center border border-white/5">
                       <p className="text-[10px] text-slate-500 mb-0.5">Box 8 personas</p>
@@ -570,16 +686,16 @@ export default function MapSection() {
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">¿Cómo funciona?</p>
             <ol className="space-y-3">
               {[
-                'Haz click en un box verde (disponible)',
+                'Toca un box verde del mapa',
+                'Confirma con el botón "Continuar"',
                 'Elige box completo o entrada individual',
                 'Tienes 10 min para completar la compra',
-                'Ingresa tus datos y confirma el pago',
-              ].map((step, i) => (
+              ].map((s, i) => (
                 <li key={i} className="flex items-start gap-3 text-sm text-slate-400">
                   <span className="w-5 h-5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
                     {i + 1}
                   </span>
-                  {step}
+                  {s}
                 </li>
               ))}
             </ol>
