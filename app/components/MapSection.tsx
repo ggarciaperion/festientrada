@@ -214,7 +214,7 @@ function PurchasePanel({
     if (view === 'idle') { setForm({ name: '', email: '', phone: '', dni: '' }); setErrors({}); }
   }, [view]);
 
-  const indPrice = indZone === 'general' ? 0 : BOX_PRICES[indZone as BoxZone].individual;
+  const indPrice = indZone === 'general' ? 10 : BOX_PRICES[indZone as BoxZone].individual;
 
   // ── IDLE ─────────────────────────────────────────────────
   if (view === 'idle') {
@@ -260,7 +260,7 @@ function PurchasePanel({
             ))}
             <div className="bg-white/[0.03] rounded-lg p-2 text-center border border-white/5">
               <p className="text-[9px] font-bold uppercase text-blue-400">GENERAL</p>
-              <p className="text-slate-500 text-[10px] mt-0.5">Zona pista</p>
+              <p className="text-white text-xs font-bold mt-0.5">S/ 10 <span className="text-[9px] text-slate-500 font-normal">/ persona</span></p>
             </div>
           </div>
           <button onClick={onOpenIndividual} className="w-full btn-secondary py-2.5 text-sm justify-center">
@@ -387,12 +387,12 @@ function PurchasePanel({
   // ── INDIVIDUAL FORM ──────────────────────────────────────
   if (view === 'individual_form') {
     const isGeneral    = indZone === 'general';
-    const pricePerUnit = isGeneral ? 0 : BOX_PRICES[indZone as BoxZone].individual;
-    const totalPrice   = isGeneral ? indPrice : pricePerUnit * indEntries;
+    const pricePerUnit = isGeneral ? 10 : BOX_PRICES[indZone as BoxZone].individual;
+    const totalPrice   = pricePerUnit * indEntries;
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!isGeneral && indPrice <= 0) return;
+      if (pricePerUnit <= 0) return;
       const errs = validateForm(form);
       setErrors(errs);
       if (Object.keys(errs).length > 0) return;
@@ -418,7 +418,7 @@ function PurchasePanel({
               const isBox = z !== 'general';
               const label = isBox ? ZONE_COLORS[z as BoxZone].label : 'GENERAL';
               const color = isBox ? ZONE_COLORS[z as BoxZone].stroke : '#3b82f6';
-              const price = isBox ? `S/ ${BOX_PRICES[z as BoxZone].individual}` : 'Zona pista';
+              const price = isBox ? `S/ ${BOX_PRICES[z as BoxZone].individual}` : 'S/ 10';
               return (
                 <button key={z} onClick={() => { setIndZone(z); setIndEntries(1); }}
                   className={`p-3 rounded-xl border-2 text-left transition-all ${
@@ -436,7 +436,7 @@ function PurchasePanel({
         {/* Quantity */}
         <div className="mb-4">
           <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-            {isGeneral ? 'Cantidad' : `Cantidad · S/ ${pricePerUnit} / persona`}
+            {`Cantidad · S/ ${pricePerUnit} / persona`}
           </label>
           <div className="flex items-center gap-3 bg-white/[0.02] border border-white/8 rounded-xl px-4 py-3">
             <button onClick={() => setIndEntries(n => Math.max(1, n - 1))}
@@ -457,9 +457,7 @@ function PurchasePanel({
             className="btn-primary w-full justify-center py-3.5 mt-4 text-sm disabled:opacity-60">
             {processing
               ? <><IconSpin /> Procesando...</>
-              : isGeneral
-                ? `Comprar ${indEntries} entrada${indEntries > 1 ? 's' : ''} General`
-                : `Comprar ${indEntries} entrada${indEntries > 1 ? 's' : ''} · S/ ${totalPrice}`}
+              : `Comprar ${indEntries} entrada${indEntries > 1 ? 's' : ''} · S/ ${totalPrice}`}
           </button>
         </form>
       </div>
