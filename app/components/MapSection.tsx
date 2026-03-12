@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import CheckoutPanel from './CheckoutPanel';
 import {
   boxService,
   getBoxSVGPos,
@@ -11,7 +12,6 @@ import {
   type Box,
   type BoxZone,
   type BoxStatus,
-  type BoxBuyer,
 } from '@/lib/boxes';
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -113,7 +113,7 @@ function VenueMap({
 }
 
 // ── Shared form fields ───────────────────────────────────────
-type FormData = { name: string; email: string; phone: string; dni: string };
+type FormData   = { name: string; email: string; phone: string; dni: string };
 type FormErrors = Partial<FormData>;
 
 function validateForm(f: FormData): FormErrors {
@@ -126,13 +126,9 @@ function validateForm(f: FormData): FormErrors {
 }
 
 function FormFields({
-  data,
-  errors,
-  onChange,
+  data, errors, onChange,
 }: {
-  data: FormData;
-  errors: FormErrors;
-  onChange: (f: FormData) => void;
+  data: FormData; errors: FormErrors; onChange: (f: FormData) => void;
 }) {
   const fields = [
     { id: 'name',  label: 'Nombre completo',    type: 'text',  ph: 'Juan Pérez García' },
@@ -168,7 +164,13 @@ type PanelView =
   | 'box_form'
   | 'box_reserved'
   | 'individual_form'
+  | 'checkout'
   | 'success';
+
+// ── Purchase context ─────────────────────────────────────────
+type PurchaseCtx =
+  | { type: 'box';        price: number }
+  | { type: 'individual'; zone: BoxZone | 'general'; entries: number; price: number };
 
 // ── Right Panel ──────────────────────────────────────────────
 function PurchasePanel({
@@ -176,8 +178,8 @@ function PurchasePanel({
   selectedBox,
   reservedMs,
   onBoxReserve,
-  onBoxConfirm,
-  onIndividualConfirm,
+  onProceedToCheckout,
+  onIndividualProceed,
   onReset,
   onOpenIndividual,
 }: {
@@ -185,19 +187,17 @@ function PurchasePanel({
   selectedBox: Box | null;
   reservedMs: number;
   onBoxReserve: (form: FormData) => void;
-  onBoxConfirm: () => void;
-  onIndividualConfirm: (zone: BoxZone | 'general', entries: number, form: FormData) => void;
+  onProceedToCheckout: () => void;
+  onIndividualProceed: (zone: BoxZone | 'general', entries: number, form: FormData) => void;
   onReset: () => void;
   onOpenIndividual: () => void;
 }) {
   const [form,       setForm]       = useState<FormData>({ name: '', email: '', phone: '', dni: '' });
   const [errors,     setErrors]     = useState<FormErrors>({});
-  const [processing, setProcessing] = useState(false);
   const [timeLeft,   setTimeLeft]   = useState(reservedMs);
   const [indZone,    setIndZone]    = useState<BoxZone | 'general'>('platinum');
   const [indEntries, setIndEntries] = useState(1);
 
-  // Sync timer
   useEffect(() => {
     if (view !== 'box_reserved') return;
     setTimeLeft(boxService.getMyReservationMs());
@@ -209,12 +209,12 @@ function PurchasePanel({
     return () => clearInterval(id);
   }, [view, onReset]);
 
-  // Reset form when panel resets
   useEffect(() => {
     if (view === 'idle') { setForm({ name: '', email: '', phone: '', dni: '' }); setErrors({}); }
   }, [view]);
 
-  const indPrice = indZone === 'general' ? 10 : BOX_PRICES[indZone as BoxZone].individual;
+  const pricePerUnit  = indZone === 'general' ? 10 : BOX_PRICES[indZone as BoxZone].individual;
+  const indTotalPrice = pricePerUnit * indEntries;
 
   // ── IDLE ─────────────────────────────────────────────────
   if (view === 'idle') {
@@ -222,7 +222,6 @@ function PurchasePanel({
       <div className="space-y-3">
         <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">¿Qué deseas comprar?</p>
 
-        {/* Option A: Box */}
         <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-amber-400"><IconBox /></span>
@@ -242,7 +241,6 @@ function PurchasePanel({
           <p className="text-[10px] text-slate-600 mt-2 text-center">👆 Toca un box verde en el mapa</p>
         </div>
 
-        {/* Option B: Individual */}
         <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-violet-400"><IconTicket /></span>
@@ -273,8 +271,8 @@ function PurchasePanel({
 
   // ── BOX FORM ─────────────────────────────────────────────
   if (view === 'box_form' && selectedBox) {
-    const zone   = ZONE_COLORS[selectedBox.zone];
-    const price  = BOX_PRICES[selectedBox.zone].full;
+    const zone  = ZONE_COLORS[selectedBox.zone];
+    const price = BOX_PRICES[selectedBox.zone].full;
 
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -289,7 +287,6 @@ function PurchasePanel({
           <IconBack /> Cambiar selección
         </button>
 
-        {/* Box info */}
         <div className="rounded-xl p-4 mb-4 border"
           style={{ background: `${zone.stroke}11`, borderColor: `${zone.stroke}33` }}>
           <div className="flex items-center justify-between mb-2">
@@ -322,17 +319,10 @@ function PurchasePanel({
     );
   }
 
-  // ── BOX RESERVED (confirmar pago) ────────────────────────
+  // ── BOX RESERVED — proceder al pago ──────────────────────
   if (view === 'box_reserved' && selectedBox) {
     const zone  = ZONE_COLORS[selectedBox.zone];
     const price = BOX_PRICES[selectedBox.zone].full;
-
-    const handleConfirm = async () => {
-      setProcessing(true);
-      await new Promise(r => setTimeout(r, 1500));
-      onBoxConfirm();
-      setProcessing(false);
-    };
 
     return (
       <div>
@@ -352,11 +342,8 @@ function PurchasePanel({
         <div className="rounded-xl border border-white/8 bg-white/[0.02] p-4 mb-4">
           <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">Resumen de compra</p>
           {[
-            { label: 'Box',      value: `${selectedBox.id} · ${zone.label}` },
-            { label: 'Tipo',     value: 'Box completo (8 personas)' },
-            { label: 'Comprador',value: form.name },
-            { label: 'DNI',      value: form.dni },
-            { label: 'Correo',   value: form.email },
+            { label: 'Box',    value: `${selectedBox.id} · ${zone.label}` },
+            { label: 'Tipo',   value: 'Box completo (8 personas)' },
           ].map(({ label, value }) => (
             <div key={label} className="flex justify-between text-sm py-1.5 border-b border-white/5 last:border-0">
               <span className="text-slate-400 shrink-0 mr-3">{label}</span>
@@ -370,36 +357,29 @@ function PurchasePanel({
         </div>
 
         <div className="flex gap-3">
-          <button onClick={onReset} disabled={processing}
-            className="btn-secondary flex-1 py-3 text-sm disabled:opacity-40">
+          <button onClick={onReset}
+            className="btn-secondary flex-1 py-3 text-sm">
             Cancelar
           </button>
-          <button onClick={handleConfirm} disabled={processing}
-            className="btn-primary flex-1 py-3 text-sm justify-center disabled:opacity-60">
-            {processing ? <><IconSpin /> Procesando...</> : 'Confirmar pago'}
+          <button onClick={onProceedToCheckout}
+            className="btn-primary flex-1 py-3 text-sm justify-center">
+            Pagar ahora →
           </button>
         </div>
-        <p className="text-center text-[10px] text-slate-700 mt-2">Demo · No se realiza ningún cobro real</p>
       </div>
     );
   }
 
   // ── INDIVIDUAL FORM ──────────────────────────────────────
   if (view === 'individual_form') {
-    const isGeneral    = indZone === 'general';
-    const pricePerUnit = isGeneral ? 10 : BOX_PRICES[indZone as BoxZone].individual;
-    const totalPrice   = pricePerUnit * indEntries;
+    const isGeneral = indZone === 'general';
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      if (pricePerUnit <= 0) return;
       const errs = validateForm(form);
       setErrors(errs);
       if (Object.keys(errs).length > 0) return;
-      setProcessing(true);
-      await new Promise(r => setTimeout(r, 1200));
-      onIndividualConfirm(indZone, indEntries, form);
-      setProcessing(false);
+      onIndividualProceed(indZone, indEntries, form);
     };
 
     return (
@@ -446,18 +426,19 @@ function PurchasePanel({
               className="w-10 h-10 rounded-lg border border-white/10 text-white hover:bg-white/5 transition text-xl font-bold">+</button>
           </div>
           {!isGeneral && (
-            <p className="text-right text-sm font-bold text-amber-400 mt-1.5">Total: S/ {totalPrice}</p>
+            <p className="text-right text-sm font-bold text-amber-400 mt-1.5">Total: S/ {indTotalPrice}</p>
+          )}
+          {isGeneral && (
+            <p className="text-right text-sm font-bold text-amber-400 mt-1.5">Total: S/ {indTotalPrice}</p>
           )}
         </div>
 
         <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Tus datos</p>
         <form onSubmit={handleSubmit}>
           <FormFields data={form} errors={errors} onChange={setForm} />
-          <button type="submit" disabled={processing}
-            className="btn-primary w-full justify-center py-3.5 mt-4 text-sm disabled:opacity-60">
-            {processing
-              ? <><IconSpin /> Procesando...</>
-              : `Comprar ${indEntries} entrada${indEntries > 1 ? 's' : ''} · S/ ${totalPrice}`}
+          <button type="submit"
+            className="btn-primary w-full justify-center py-3.5 mt-4 text-sm">
+            Continuar al pago · S/ {indTotalPrice}
           </button>
         </form>
       </div>
@@ -471,12 +452,12 @@ function PurchasePanel({
         <div className="w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
           <IconCheck />
         </div>
-        <h3 className="font-heading font-black text-white text-xl mb-2">¡Compra confirmada!</h3>
+        <h3 className="font-heading font-black text-white text-xl mb-2">¡Pago confirmado!</h3>
         <p className="text-slate-400 text-sm mb-1">
           {selectedBox ? `Box ${selectedBox.id} · ${ZONE_COLORS[selectedBox.zone].label}` : 'Entradas individuales'}
         </p>
         <p className="text-slate-500 text-xs mb-6">
-          Confirmación enviada a <strong className="text-slate-300">{form.email}</strong>
+          Recibirás tu confirmación por correo electrónico.
         </p>
         <button onClick={onReset} className="btn-primary w-full justify-center py-3.5">
           Ver mapa actualizado
@@ -495,6 +476,8 @@ export default function MapSection() {
   const [view,        setView]        = useState<PanelView>('idle');
   const [reservedMs,  setReservedMs]  = useState(0);
   const [mounted,     setMounted]     = useState(false);
+  const [buyerData,   setBuyerData]   = useState<FormData | null>(null);
+  const [purchaseCtx, setPurchaseCtx] = useState<PurchaseCtx | null>(null);
 
   const load = useCallback(() => {
     setBoxes(boxService.getBoxes());
@@ -504,7 +487,7 @@ export default function MapSection() {
   useEffect(() => { setMounted(true); load(); }, [load]);
   useEffect(() => { const id = setInterval(load, 5000); return () => clearInterval(id); }, [load]);
 
-  // Timer tick
+  // Timer tick for box_reserved
   useEffect(() => {
     if (view !== 'box_reserved') return;
     const id = setInterval(() => {
@@ -513,12 +496,11 @@ export default function MapSection() {
       if (ms <= 0) handleReset();
     }, 1000);
     return () => clearInterval(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
 
   const handleBoxClick = (box: Box) => {
     if (selectedBox?.id === box.id) {
-      // Second click → deselect
       setSelectedBox(null);
       setView('idle');
       return;
@@ -527,36 +509,68 @@ export default function MapSection() {
     setView('box_form');
   };
 
-  const handleBoxReserve = (form: { name: string; email: string; phone: string; dni: string }) => {
+  const handleBoxReserve = (form: FormData) => {
     if (!selectedBox) return;
     boxService.reserveBox(selectedBox.id);
     setReservedMs(boxService.getMyReservationMs());
-    // Store form data in a ref-like way via panel's own state
+    setBuyerData(form);
+    setPurchaseCtx({ type: 'box', price: BOX_PRICES[selectedBox.zone].full });
     setView('box_reserved');
     load();
   };
 
-  const handleBoxConfirm = () => {
-    if (!selectedBox) return;
-    // The form data is inside PurchasePanel — we need to pass it up
-    // We'll use the buyer data that was stored in panel
-    setView('success');
-    load();
+  const handleIndividualProceed = (zone: BoxZone | 'general', entries: number, form: FormData) => {
+    const pricePerUnit = zone === 'general' ? 10 : BOX_PRICES[zone as BoxZone].individual;
+    setBuyerData(form);
+    setPurchaseCtx({ type: 'individual', zone, entries, price: pricePerUnit * entries });
+    setView('checkout');
   };
 
-  const handleIndividualConfirm = (zone: BoxZone | 'general', entries: number, form: { name: string; email: string; phone: string; dni: string }) => {
-    // Individual purchases don't lock a box, just record
+  // Called by CheckoutPanel on successful payment
+  const handlePaymentSuccess = (chargeId: string) => {
+    if (purchaseCtx?.type === 'box' && selectedBox && buyerData) {
+      boxService.confirmPurchase(selectedBox.id, {
+        name:         buyerData.name,
+        email:        buyerData.email,
+        phone:        buyerData.phone,
+        dni:          buyerData.dni,
+        entries:      8,
+        purchaseType: 'full',
+        paidAmount:   purchaseCtx.price,
+        purchasedAt:  new Date().toISOString(),
+      });
+    }
+    // For individual entries, no box state to update (no physical seat allocation)
+    console.info('Pago confirmado · chargeId:', chargeId);
     setView('success');
+    load();
   };
 
   const handleReset = () => {
-    if (selectedBox && view === 'box_reserved') {
+    if (selectedBox && (view === 'box_reserved' || view === 'checkout')) {
       boxService.releaseReservation(selectedBox.id);
     }
     setSelectedBox(null);
+    setBuyerData(null);
+    setPurchaseCtx(null);
     setView('idle');
     load();
   };
+
+  // Checkout description string
+  const checkoutDescription = (() => {
+    if (!purchaseCtx) return '';
+    if (purchaseCtx.type === 'box' && selectedBox) {
+      return `Box ${selectedBox.id} · ${ZONE_COLORS[selectedBox.zone].label} · Festival Cubanada Perion`;
+    }
+    if (purchaseCtx.type === 'individual') {
+      const zoneLabel = purchaseCtx.zone === 'general'
+        ? 'General'
+        : ZONE_COLORS[purchaseCtx.zone as BoxZone].label;
+      return `${purchaseCtx.entries} entrada(s) ${zoneLabel} · Festival Cubanada Perion`;
+    }
+    return 'Festival Cubanada Perion';
+  })();
 
   return (
     <>
@@ -610,16 +624,26 @@ export default function MapSection() {
 
         {/* ── Right panel ── */}
         <div className="card p-5">
-          <PurchasePanel
-            view={view}
-            selectedBox={selectedBox}
-            reservedMs={reservedMs}
-            onBoxReserve={handleBoxReserve}
-            onBoxConfirm={handleBoxConfirm}
-            onIndividualConfirm={handleIndividualConfirm}
-            onReset={handleReset}
-            onOpenIndividual={() => { setSelectedBox(null); setView('individual_form'); }}
-          />
+          {view === 'checkout' && purchaseCtx && buyerData ? (
+            <CheckoutPanel
+              amount={purchaseCtx.price}
+              description={checkoutDescription}
+              buyerInfo={buyerData}
+              onSuccess={handlePaymentSuccess}
+              onCancel={handleReset}
+            />
+          ) : (
+            <PurchasePanel
+              view={view}
+              selectedBox={selectedBox}
+              reservedMs={reservedMs}
+              onBoxReserve={handleBoxReserve}
+              onProceedToCheckout={() => setView('checkout')}
+              onIndividualProceed={handleIndividualProceed}
+              onReset={handleReset}
+              onOpenIndividual={() => { setSelectedBox(null); setView('individual_form'); }}
+            />
+          )}
         </div>
       </div>
     </>
