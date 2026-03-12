@@ -1,0 +1,305 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Reset ──────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #09090F;
+  color: #F1F5F9;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+/* ── Stars background ───────────────────────────────────── */
+.stars-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.star {
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+  animation: twinkle 4s ease-in-out infinite;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.05; }
+  50%       { opacity: 0.4;  }
+}
+
+/* ── Hero ambient glow ──────────────────────────────────── */
+.hero-glow {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 700px;
+  height: 700px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(212, 160, 23, 0.07) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+/* ── Component layer ────────────────────────────────────── */
+@layer components {
+
+  /* ── Cards ── */
+  .card {
+    background: #111122;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 16px;
+  }
+
+  .card-zone {
+    background: #111122;
+    border-radius: 16px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .card-zone:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5);
+  }
+
+  /* ── Buttons ── */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: #D4A017;
+    color: #09090F;
+    font-weight: 700;
+    font-family: var(--font-montserrat), system-ui, sans-serif;
+    letter-spacing: 0.01em;
+    padding: 0.875rem 2rem;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .btn-primary:hover  { background: #E8C53A; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: transparent;
+    color: #F1F5F9;
+    font-weight: 600;
+    padding: 0.875rem 2rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.28);
+  }
+
+  .btn-zone {
+    display: block;
+    width: 100%;
+    text-align: center;
+    font-weight: 700;
+    font-family: var(--font-montserrat), system-ui, sans-serif;
+    font-size: 0.875rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.2s ease, transform 0.1s ease;
+    text-decoration: none;
+    letter-spacing: 0.01em;
+  }
+
+  .btn-zone:hover { opacity: 0.88; transform: translateY(-1px); }
+
+  /* ── Navigation ── */
+  .nav-link {
+    color: #94A3B8;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+
+  .nav-link:hover { color: #F1F5F9; }
+
+  /* ── Section labels / titles ── */
+  .section-label {
+    display: inline-block;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #D4A017;
+    margin-bottom: 0.75rem;
+  }
+
+  .section-title {
+    font-family: var(--font-montserrat), system-ui, sans-serif;
+    font-weight: 800;
+    font-size: 2.25rem;
+    color: #F8FAFC;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+  }
+
+  /* ── Info badge (pill) ── */
+  .info-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 9999px;
+    padding: 0.5rem 1.125rem;
+    font-size: 0.875rem;
+    color: #CBD5E1;
+  }
+
+  /* ── Countdown ── */
+  .countdown-unit {
+    background: #111122;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    min-width: 80px;
+    text-align: center;
+  }
+
+  .countdown-number {
+    font-family: var(--font-montserrat), system-ui, sans-serif;
+    font-size: 2.25rem;
+    font-weight: 900;
+    color: #D4A017;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+
+  .countdown-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 0.375rem;
+  }
+
+  /* ── Trust badges ── */
+  .trust-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: #64748B;
+  }
+
+  /* ── Artist card ── */
+  .artist-card {
+    background: #111122;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: transform 0.2s ease;
+  }
+
+  .artist-card:hover { transform: translateY(-4px); }
+
+  /* ── FAQ ── */
+  .faq-item        { border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+  .faq-item:first-child { border-top: 1px solid rgba(255, 255, 255, 0.06); }
+
+  .faq-trigger {
+    width: 100%;
+    text-align: left;
+    padding: 1.25rem 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    color: #F1F5F9;
+    font-size: 1rem;
+    font-weight: 600;
+    gap: 1rem;
+    transition: color 0.2s ease;
+  }
+
+  .faq-trigger:hover { color: #D4A017; }
+
+  .faq-content {
+    padding-bottom: 1.25rem;
+    color: #94A3B8;
+    line-height: 1.7;
+    font-size: 0.9375rem;
+  }
+
+  /* ── Form inputs ── */
+  .form-input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    color: #F1F5F9;
+    font-size: 0.9375rem;
+    transition: border-color 0.2s ease, background 0.2s ease;
+    outline: none;
+  }
+
+  .form-input::placeholder { color: #475569; }
+
+  .form-input:focus {
+    border-color: rgba(212, 160, 23, 0.5);
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .form-input-error { border-color: rgba(239, 68, 68, 0.5) !important; }
+
+  /* ── Divider ── */
+  .divider {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    margin: 0;
+  }
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (min-width: 768px) {
+  .section-title { font-size: 2.875rem; }
+}
+
+@media (max-width: 640px) {
+  .countdown-unit   { padding: 0.75rem 0.875rem; min-width: 68px; }
+  .countdown-number { font-size: 1.75rem; }
+  .section-title    { font-size: 1.875rem; }
+  .btn-primary,
+  .btn-secondary    { padding: 0.75rem 1.5rem; }
+}
