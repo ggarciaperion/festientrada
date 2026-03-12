@@ -527,7 +527,7 @@ export default function MapSection() {
   };
 
   // Called by CheckoutPanel on successful payment
-  const handlePaymentSuccess = (chargeId: string) => {
+  const handlePaymentSuccess = (orderId: string) => {
     if (purchaseCtx?.type === 'box' && selectedBox && buyerData) {
       boxService.confirmPurchase(selectedBox.id, {
         name:         buyerData.name,
@@ -541,7 +541,7 @@ export default function MapSection() {
       });
     }
     // For individual entries, no box state to update (no physical seat allocation)
-    console.info('Pago confirmado · chargeId:', chargeId);
+    console.info('Pago confirmado · orderId:', orderId);
     setView('success');
     load();
   };
@@ -629,7 +629,7 @@ export default function MapSection() {
               amount={purchaseCtx.price}
               description={checkoutDescription}
               buyerInfo={buyerData}
-              onSuccess={handlePaymentSuccess}
+              onSuccess={(orderId) => handlePaymentSuccess(orderId)}
               onCancel={handleReset}
             />
           ) : (

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Montserrat, Inter } from "next/font/google";
-import Script from "next/script";
 import "./globals.css";
 
 const montserrat = Montserrat({
@@ -54,11 +53,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           ))}
         </div>
         {children}
-        {/* Culqi.js — tokenización de tarjetas y Yape */}
-        <Script
-          src="https://checkout.culqi.com/js/v4"
-          strategy="afterInteractive"
-        />
       </body>
     </html>
   );

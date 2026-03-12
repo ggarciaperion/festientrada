@@ -1,59 +1,86 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
-// ── Culqi.js global types ────────────────────────────────────
+// ── Izipay KRGlue/KR global types ────────────────────────────
+// KRGlue is injected by the Izipay JS script loaded dynamically.
 declare global {
   interface Window {
-    Culqi: {
-      publicKey: string;
-      createToken: (data: CulqiCardData) => void;
-      token?:       { id: string; object: string; email: string };
-      error?:       { user_message: string; merchant_message?: string };
-      fingerprint?: string;
+    KRGlue?: {
+      loadLibrary: (
+        baseUrl:   string,
+        publicKey: string,
+      ) => Promise<{ KR: IzipayKR }>;
     };
-    culqiAction?: () => void;
   }
 }
 
-interface CulqiCardData {
-  card_number:       string;
-  cvv:               string;
-  expiration_month:  string;
-  expiration_year:   string;
-  email:             string;
+interface IzipayKR {
+  setFormConfig: (cfg: Record<string, unknown>) => Promise<{ KR: IzipayKR }>;
+  attachForm:    (selector: string)             => Promise<{ KR: IzipayKR }>;
+  onSubmit:      (cb: (res: IzipaySubmitResponse) => Promise<boolean>) => Promise<{ KR: IzipayKR }>;
+  onError:       (cb: (err: IzipayKRError)       => void)             => Promise<{ KR: IzipayKR }>;
+}
+
+interface IzipaySubmitResponse {
+  clientAnswer:    Record<string, unknown>;
+  rawClientAnswer: string;
+  hash:            string;
+  hashAlgorithm:   string;
+}
+
+interface IzipayKRError {
+  errorCode:    string;
+  errorMessage: string;
 }
 
 // ── Icons ────────────────────────────────────────────────────
-function IconSpin()  { return <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4"/></svg>; }
-function IconBack()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>; }
-function IconLock()  { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>; }
-function IconCheck() { return <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>; }
+function IconSpin() {
+  return (
+    <svg className="animate-spin w-5 h-5 text-amber-400" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" strokeOpacity="0.25"/>
+      <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4"/>
+    </svg>
+  );
+}
+function IconBack() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+  );
+}
+function IconLock() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+    </svg>
+  );
+}
 
 // ── Helpers ───────────────────────────────────────────────────
-const fmtCard   = (v: string) => v.replace(/\D/g, '').slice(0, 16).replace(/(.{4})/g, '$1 ').trim();
-const fmtExpiry = (v: string) => {
-  const d = v.replace(/\D/g, '').slice(0, 4);
-  return d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
-};
-const fmtPhone  = (v: string) => v.replace(/\D/g, '').slice(0, 9);
+function splitName(fullName: string): { firstName: string; lastName: string } {
+  const parts = fullName.trim().split(/\s+/);
+  return {
+    firstName: parts[0] ?? fullName,
+    lastName:  parts.slice(1).join(' ') || '-',
+  };
+}
 
-function tokenizeCard(cardData: CulqiCardData): Promise<string> {
+// Dynamically loads a script tag (idempotent — won't add duplicates)
+function loadIzipayScript(baseUrl: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (typeof window === 'undefined' || !window.Culqi) {
-      reject(new Error('Culqi no disponible — recarga la página'));
+    const src = `${baseUrl}/payments/v1/js/index.js`;
+    if (document.querySelector(`script[src="${src}"]`)) {
+      resolve();
       return;
     }
-    // Set one-shot global callback
-    window.culqiAction = () => {
-      if (window.Culqi?.token?.id) {
-        resolve(window.Culqi.token.id);
-      } else {
-        reject(new Error(window.Culqi?.error?.user_message ?? 'Error de tokenización'));
-      }
-    };
-    window.Culqi.publicKey = process.env.NEXT_PUBLIC_CULQI_PUBLIC_KEY ?? '';
-    window.Culqi.createToken(cardData);
+    const script = document.createElement('script');
+    script.src   = src;
+    script.async = true;
+    script.onload  = () => resolve();
+    script.onerror = () => reject(new Error('No se pudo cargar el formulario de pago de Izipay'));
+    document.head.appendChild(script);
   });
 }
 
@@ -62,7 +89,7 @@ export interface CheckoutPanelProps {
   amount:      number;
   description: string;
   buyerInfo:   { name: string; email: string; phone: string; dni: string };
-  onSuccess:   (chargeId: string) => void;
+  onSuccess:   (orderId: string) => void;
   onCancel:    () => void;
 }
 
@@ -74,121 +101,120 @@ export default function CheckoutPanel({
   onSuccess,
   onCancel,
 }: CheckoutPanelProps) {
-  type Method = 'card' | 'yape';
-  const [method,      setMethod]      = useState<Method>('card');
-  const [processing,  setProcessing]  = useState(false);
-  const [error,       setError]       = useState('');
+  type State = 'loading' | 'ready' | 'processing' | 'error';
+  const [state,      setState]      = useState<State>('loading');
+  const [error,      setError]      = useState('');
+  const formId = useRef(`izipay-${Math.random().toString(36).slice(2, 7)}`);
 
-  // Card form
-  const [cardNumber,  setCardNumber]  = useState('');
-  const [expiry,      setExpiry]      = useState('');
-  const [cvv,         setCvv]         = useState('');
+  useEffect(() => {
+    let cancelled = false;
 
-  // Yape form
-  const [yapePhone,   setYapePhone]   = useState('');
+    async function init() {
+      try {
+        // ── Step 1: Create Izipay payment session (server) ──
+        const { firstName, lastName } = splitName(buyerInfo.name);
 
-  useEffect(() => { setError(''); }, [method]);
+        const sessionRes = await fetch('/api/payment/create-session', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount,
+            email:     buyerInfo.email,
+            firstName,
+            lastName,
+            phone:     buyerInfo.phone,
+            dni:       buyerInfo.dni,
+            description,
+          }),
+        });
 
-  // ── Card submit ────────────────────────────────────────────
-  const handleCardSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+        const sessionData = await sessionRes.json() as
+          | { ok: true;  session: { formToken: string; publicKey: string; baseUrl: string } }
+          | { ok: false; error: string };
 
-    const [expM, expY] = expiry.split('/');
-    const digits = cardNumber.replace(/\s/g, '');
+        if (!sessionData.ok) {
+          setError(sessionData.error);
+          setState('error');
+          return;
+        }
+        if (cancelled) return;
 
-    if (digits.length < 13) { setError('Número de tarjeta inválido'); return; }
-    if (!expM || !expY || expM.length < 2 || expY.length < 2) { setError('Fecha de vencimiento inválida'); return; }
-    if (cvv.length < 3) { setError('CVV inválido'); return; }
+        const { formToken, publicKey, baseUrl } = sessionData.session;
 
-    setProcessing(true);
-    try {
-      const tokenId = await tokenizeCard({
-        card_number:      digits,
-        cvv:              cvv,
-        expiration_month: expM,
-        expiration_year:  `20${expY}`,
-        email:            buyerInfo.email,
-      });
+        // ── Step 2: Load Izipay JS SDK ───────────────────────
+        await loadIzipayScript(baseUrl);
+        if (cancelled) return;
 
-      const res = await fetch('/api/charge', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          method:      'card',
-          tokenId,
-          amount,
-          email:       buyerInfo.email,
-          name:        buyerInfo.name,
-          dni:         buyerInfo.dni,
-          description,
-        }),
-      });
+        if (!window.KRGlue) {
+          throw new Error('El SDK de Izipay no se cargó correctamente');
+        }
 
-      const data = await res.json() as { ok: boolean; chargeId?: string; error?: string };
-      if (data.ok && data.chargeId) {
-        onSuccess(data.chargeId);
-      } else {
-        setError(data.error ?? 'Pago rechazado. Verifica los datos de tu tarjeta.');
+        // ── Step 3: Initialize KR and attach form ────────────
+        const { KR: kr1 } = await window.KRGlue.loadLibrary(baseUrl, publicKey);
+        const { KR: kr2 } = await kr1.setFormConfig({ formToken, language: 'es-PE' });
+        const { KR: kr3 } = await kr2.attachForm(`#${formId.current}`);
+        if (cancelled) return;
+
+        setState('ready');
+
+        // ── Step 4: Listen for errors ────────────────────────
+        await kr3.onError((err) => {
+          setError(err.errorMessage || 'Error en el formulario de pago');
+          setState('ready');
+        });
+
+        // ── Step 5: Handle payment submission ────────────────
+        await kr3.onSubmit(async (response) => {
+          setState('processing');
+          setError('');
+
+          const validateRes = await fetch('/api/payment/validate', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              clientAnswer:    response.clientAnswer,
+              rawClientAnswer: response.rawClientAnswer,
+              hash:            response.hash,
+            }),
+          });
+
+          const validation = await validateRes.json() as
+            { ok: boolean; orderId?: string; error?: string };
+
+          if (validation.ok && validation.orderId) {
+            onSuccess(validation.orderId);
+          } else {
+            setError(validation.error ?? 'El pago no se pudo confirmar. Intenta de nuevo.');
+            setState('ready');
+          }
+
+          return false; // Prevent Izipay's default page redirect
+        });
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Error al inicializar el formulario de pago');
+          setState('error');
+        }
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error al procesar el pago');
-    } finally {
-      setProcessing(false);
     }
-  };
 
-  // ── Yape submit ────────────────────────────────────────────
-  const handleYapeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    if (yapePhone.length !== 9) { setError('Ingresa tu número de 9 dígitos registrado en Yape'); return; }
-
-    const fingerprint =
-      typeof window !== 'undefined' && window.Culqi?.fingerprint
-        ? window.Culqi.fingerprint
-        : crypto.randomUUID();
-
-    setProcessing(true);
-    try {
-      const res = await fetch('/api/charge', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          method:      'yape',
-          phone:       yapePhone,
-          fingerprint,
-          amount,
-          email:       buyerInfo.email,
-          name:        buyerInfo.name,
-          dni:         buyerInfo.dni,
-          description,
-        }),
-      });
-
-      const data = await res.json() as { ok: boolean; chargeId?: string; error?: string };
-      if (data.ok && data.chargeId) {
-        onSuccess(data.chargeId);
-      } else {
-        setError(data.error ?? 'Pago Yape no procesado. Verifica que el número esté registrado en Yape.');
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error al procesar el pago');
-    } finally {
-      setProcessing(false);
-    }
-  };
+    init();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div>
-      {/* Header */}
-      <button onClick={onCancel} disabled={processing}
-        className="flex items-center gap-1 text-slate-500 hover:text-slate-300 text-xs mb-4 transition disabled:opacity-40">
+      {/* Back button */}
+      <button
+        onClick={onCancel}
+        disabled={state === 'processing'}
+        className="flex items-center gap-1 text-slate-500 hover:text-slate-300 text-xs mb-4 transition disabled:opacity-40"
+      >
         <IconBack /> Volver
       </button>
 
-      {/* Amount */}
+      {/* Amount summary */}
       <div className="bg-amber-500/8 border border-amber-500/20 rounded-xl p-3 mb-5 flex items-center justify-between">
         <div>
           <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Total a pagar</p>
@@ -197,124 +223,51 @@ export default function CheckoutPanel({
         <p className="font-heading font-black text-2xl text-amber-400">S/ {amount}</p>
       </div>
 
-      {/* Method tabs */}
-      <div className="flex gap-2 mb-5">
-        {(['card', 'yape'] as Method[]).map(m => (
-          <button key={m} onClick={() => { setMethod(m); setError(''); }}
-            disabled={processing}
-            className={`flex-1 py-2.5 rounded-xl border text-sm font-semibold transition
-              ${method === m
-                ? 'bg-white/8 border-white/20 text-white'
-                : 'bg-transparent border-white/6 text-slate-500 hover:border-white/12 hover:text-slate-400'
-              }`}>
-            {m === 'card' ? '💳 Tarjeta' : '📱 Yape'}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Card form ── */}
-      {method === 'card' && (
-        <form onSubmit={handleCardSubmit} className="space-y-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-              Número de tarjeta
-            </label>
-            <input
-              type="text" inputMode="numeric" placeholder="1234 5678 9012 3456"
-              value={cardNumber}
-              onChange={e => setCardNumber(fmtCard(e.target.value))}
-              className="form-input text-sm py-3 font-mono tracking-widest"
-              maxLength={19}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                Vencimiento
-              </label>
-              <input
-                type="text" inputMode="numeric" placeholder="MM/AA"
-                value={expiry}
-                onChange={e => setExpiry(fmtExpiry(e.target.value))}
-                className="form-input text-sm py-3 font-mono"
-                maxLength={5}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                CVV
-              </label>
-              <input
-                type="text" inputMode="numeric" placeholder="123"
-                value={cvv}
-                onChange={e => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                className="form-input text-sm py-3 font-mono"
-                maxLength={4}
-              />
-            </div>
-          </div>
-
-          {error && (
-            <p className="text-[12px] text-rose-400 bg-rose-500/8 border border-rose-500/20 rounded-lg px-3 py-2">
-              {error}
-            </p>
-          )}
-
-          <button type="submit" disabled={processing}
-            className="btn-primary w-full justify-center py-3.5 mt-2 text-sm disabled:opacity-60">
-            {processing
-              ? <><IconSpin /> Procesando pago...</>
-              : `Pagar S/ ${amount}`}
-          </button>
-        </form>
+      {/* Loading skeleton */}
+      {state === 'loading' && (
+        <div className="flex flex-col items-center justify-center py-10 gap-3">
+          <IconSpin />
+          <p className="text-xs text-slate-500">Cargando formulario de pago seguro...</p>
+        </div>
       )}
 
-      {/* ── Yape form ── */}
-      {method === 'yape' && (
-        <form onSubmit={handleYapeSubmit} className="space-y-3">
-          <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-3 text-xs text-slate-400 leading-relaxed mb-1">
-            Ingresa el número de celular <strong className="text-white">registrado en tu Yape</strong>.
-            Recibirás una notificación para confirmar el pago.
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-              Número Yape
-            </label>
-            <div className="flex gap-2 items-center">
-              <span className="text-sm text-slate-500 bg-white/[0.03] border border-white/8 rounded-lg px-3 py-3 shrink-0">
-                +51
-              </span>
-              <input
-                type="tel" inputMode="numeric" placeholder="999 999 999"
-                value={yapePhone}
-                onChange={e => setYapePhone(fmtPhone(e.target.value))}
-                className="form-input text-sm py-3 font-mono flex-1"
-                maxLength={9}
-              />
-            </div>
-          </div>
-
-          {error && (
-            <p className="text-[12px] text-rose-400 bg-rose-500/8 border border-rose-500/20 rounded-lg px-3 py-2">
-              {error}
-            </p>
-          )}
-
-          <button type="submit" disabled={processing}
-            className="btn-primary w-full justify-center py-3.5 mt-2 text-sm disabled:opacity-60">
-            {processing
-              ? <><IconSpin /> Enviando a Yape...</>
-              : `Pagar S/ ${amount} con Yape`}
+      {/* Error state (fatal — can't load form) */}
+      {state === 'error' && (
+        <div className="rounded-xl border border-rose-500/20 bg-rose-500/8 p-4 text-center">
+          <p className="text-sm text-rose-400 mb-3">{error || 'No se pudo cargar el formulario de pago'}</p>
+          <button onClick={onCancel} className="btn-secondary text-sm py-2 px-4">
+            Volver e intentar de nuevo
           </button>
-        </form>
+        </div>
       )}
 
-      {/* Security note */}
-      <p className="text-center text-[10px] text-slate-700 mt-3 flex items-center justify-center gap-1">
-        <IconLock /> Pago seguro cifrado · Procesado por Culqi
-      </p>
+      {/* Izipay embedded form — Izipay renders cards, Yape, Plin here */}
+      <div
+        id={formId.current}
+        className={state === 'loading' || state === 'error' ? 'hidden' : ''}
+      />
+
+      {/* Processing overlay */}
+      {state === 'processing' && (
+        <div className="flex flex-col items-center gap-3 py-4">
+          <IconSpin />
+          <p className="text-sm text-slate-400">Confirmando tu pago...</p>
+        </div>
+      )}
+
+      {/* Inline error (payment declined, etc.) */}
+      {error && state === 'ready' && (
+        <p className="mt-3 text-[12px] text-rose-400 bg-rose-500/8 border border-rose-500/20 rounded-lg px-3 py-2">
+          {error}
+        </p>
+      )}
+
+      {/* Security badge */}
+      {(state === 'ready' || state === 'loading') && (
+        <p className="text-center text-[10px] text-slate-700 mt-4 flex items-center justify-center gap-1">
+          <IconLock /> Pago 100% seguro · Tarjeta · Yape · Plin · Procesado por Izipay
+        </p>
+      )}
     </div>
   );
 }
