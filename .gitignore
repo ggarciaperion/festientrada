@@ -39,3 +39,6 @@ next-env.d.ts
 /data
 *.db
 *.sqlite
+
+# raw video files in root (copies are in public/videos/)
+/video*.mp4
