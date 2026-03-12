@@ -260,7 +260,7 @@ function PurchasePanel({
             ))}
             <div className="bg-white/[0.03] rounded-lg p-2 text-center border border-white/5">
               <p className="text-[9px] font-bold uppercase text-blue-400">GENERAL</p>
-              <p className="text-white text-xs font-bold mt-0.5 text-slate-500 text-[10px]">Precio libre</p>
+              <p className="text-slate-500 text-[10px] mt-0.5">Zona pista</p>
             </div>
           </div>
           <button onClick={onOpenIndividual} className="w-full btn-secondary py-2.5 text-sm justify-center">
@@ -418,7 +418,7 @@ function PurchasePanel({
               const isBox = z !== 'general';
               const label = isBox ? ZONE_COLORS[z as BoxZone].label : 'GENERAL';
               const color = isBox ? ZONE_COLORS[z as BoxZone].stroke : '#3b82f6';
-              const price = isBox ? `S/ ${BOX_PRICES[z as BoxZone].individual}` : 'Precio libre';
+              const price = isBox ? `S/ ${BOX_PRICES[z as BoxZone].individual}` : 'Zona pista';
               return (
                 <button key={z} onClick={() => { setIndZone(z); setIndEntries(1); }}
                   className={`p-3 rounded-xl border-2 text-left transition-all ${
@@ -450,17 +450,6 @@ function PurchasePanel({
           )}
         </div>
 
-        {/* Price override for general */}
-        {isGeneral && (
-          <div className="mb-4">
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Precio total (S/)</label>
-            <input type="number" min={0} value={indPrice || ''}
-              onChange={e => { /* controlled via indPrice local — use form trick */ }}
-              placeholder="Ingresa el precio"
-              className="form-input text-sm py-3 w-full" />
-          </div>
-        )}
-
         <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Tus datos</p>
         <form onSubmit={handleSubmit}>
           <FormFields data={form} errors={errors} onChange={setForm} />
@@ -468,7 +457,9 @@ function PurchasePanel({
             className="btn-primary w-full justify-center py-3.5 mt-4 text-sm disabled:opacity-60">
             {processing
               ? <><IconSpin /> Procesando...</>
-              : `Comprar ${indEntries} entrada${indEntries > 1 ? 's' : ''} · S/ ${isGeneral ? '?' : totalPrice}`}
+              : isGeneral
+                ? `Comprar ${indEntries} entrada${indEntries > 1 ? 's' : ''} General`
+                : `Comprar ${indEntries} entrada${indEntries > 1 ? 's' : ''} · S/ ${totalPrice}`}
           </button>
         </form>
       </div>
