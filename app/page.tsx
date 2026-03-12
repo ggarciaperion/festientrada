@@ -227,7 +227,7 @@ export default function Home() {
             <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/20 flex items-center justify-center">
               <IconStar />
             </div>
-            <span className="font-heading font-bold text-white text-sm hidden sm:block">
+            <span className="font-heading font-bold text-white text-sm">
               Perion Entertainment
             </span>
           </Link>
@@ -241,7 +241,7 @@ export default function Home() {
           </div>
 
           {/* CTA */}
-          <Link href="/comprar" className="btn-primary text-sm px-5 py-2.5 shrink-0">
+          <Link href="/comprar" className="btn-primary text-sm px-5 py-2.5 shrink-0 hidden sm:inline-flex">
             Comprar entradas
           </Link>
         </div>
@@ -251,10 +251,10 @@ export default function Home() {
       <section className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
         <div className="hero-glow" />
 
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center z-10 py-24">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center z-10 py-10 sm:py-24">
 
           {/* Label */}
-          <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-full px-4 py-1.5 mb-8">
+          <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-full px-4 py-1.5 mb-3 sm:mb-8">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
             <span className="text-amber-400 text-xs font-semibold tracking-widest uppercase">
               Chancay · Perú · 2026
@@ -262,7 +262,7 @@ export default function Home() {
           </div>
 
           {/* Title */}
-          <h1 className="font-heading font-black leading-[0.92] tracking-tight text-white mb-6"
+          <h1 className="font-heading font-black leading-[0.92] tracking-tight text-white mb-3 sm:mb-6"
               style={{ fontSize: 'clamp(2.75rem, 10vw, 6rem)' }}>
             FESTIVAL<br />
             <span className="text-amber-400">DE SALSA</span><br />
@@ -270,13 +270,13 @@ export default function Home() {
           </h1>
 
           {/* Subtitle */}
-          <p className="text-slate-400 text-lg sm:text-xl max-w-xl mx-auto mb-8">
+          <p className="text-slate-400 text-base sm:text-xl max-w-xl mx-auto mb-3 sm:mb-8">
             El primer festival de salsa y timba en el Malecón del Puerto de Chancay.
             Una noche de ritmo, sabor y baile frente al mar.
           </p>
 
           {/* Info pills */}
-          <div className="flex flex-wrap justify-center gap-3 mb-10">
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mb-4 sm:mb-10">
             <div className="info-badge">
               <IconCalendar />
               Domingo 29 de Marzo, 2026
@@ -295,7 +295,7 @@ export default function Home() {
           {mounted && <Countdown targetDate="2026-03-29T20:00:00" />}
 
           {/* CTAs */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mt-10">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mt-5 sm:mt-10">
             <a href="#mapa" className="btn-primary text-base px-8 py-3.5">
               Comprar Entradas
             </a>
@@ -305,7 +305,7 @@ export default function Home() {
           </div>
 
           {/* Trust */}
-          <div className="flex flex-wrap justify-center gap-6 mt-8">
+          <div className="flex flex-wrap justify-center gap-4 sm:gap-6 mt-3 sm:mt-8">
             <div className="trust-badge"><IconShield />Compra segura</div>
             <div className="trust-badge"><IconTicket />Ticket digital instantáneo</div>
             <div className="trust-badge"><IconLock />QR único e irrepetible</div>
@@ -315,9 +315,9 @@ export default function Home() {
 
 
       {/* ── Artists ─────────────────────────────────────────── */}
-      <section id="artistas" className="py-10">
+      <section id="artistas" className="py-5 sm:py-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-8">
+          <div className="text-center mb-4 sm:mb-8">
             <span className="section-label">Artistas</span>
             <h2 className="section-title">Line Up</h2>
             <p className="text-slate-400 mt-3 text-sm">
@@ -325,7 +325,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
             {ARTISTS.map((a) => (
               <div
                 key={a.id}
@@ -352,9 +352,9 @@ export default function Home() {
                   )}
                 </div>
                 {/* Info */}
-                <div className="p-4">
-                  <p className="font-heading font-bold text-white text-sm leading-snug">{a.name}</p>
-                  <p className="text-slate-500 text-xs mt-0.5">{a.role}</p>
+                <div className="p-2.5 sm:p-4">
+                  <p className="font-heading font-bold text-white text-xs sm:text-sm leading-snug">{a.name}</p>
+                  <p className="text-slate-500 text-[10px] sm:text-xs mt-0.5">{a.role}</p>
                 </div>
               </div>
             ))}
@@ -364,9 +364,9 @@ export default function Home() {
 
 
       {/* ── Interactive Map ──────────────────────────────────── */}
-      <section id="mapa" className="py-10 bg-white/[0.015]">
+      <section id="mapa" className="py-5 sm:py-10 bg-white/[0.015]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-10">
+          <div className="text-center mb-5 sm:mb-10">
             <span className="section-label">Selección de Boxes</span>
             <h2 className="section-title">Elige tu zona del evento</h2>
             <p className="text-slate-400 mt-3 text-sm max-w-xl mx-auto">
@@ -378,9 +378,9 @@ export default function Home() {
       </section>
 
       {/* ── FAQ ─────────────────────────────────────────────── */}
-      <section id="faq" className="py-10 bg-white/[0.015]">
+      <section id="faq" className="py-5 sm:py-10 bg-white/[0.015]">
         <div className="max-w-3xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-8">
+          <div className="text-center mb-4 sm:mb-8">
             <span className="section-label">Ayuda</span>
             <h2 className="section-title">Preguntas Frecuentes</h2>
           </div>
@@ -395,8 +395,8 @@ export default function Home() {
 
       {/* ── Footer ──────────────────────────────────────────── */}
       <footer className="border-t border-white/5">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
-          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-8 mb-10">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-5 mb-6 sm:gap-8 sm:mb-10">
 
             {/* Brand */}
             <div className="sm:col-span-2 md:col-span-2">
