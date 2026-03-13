@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import CheckoutPanel from './CheckoutPanel';
 import {
-  boxService,
   getBoxSVGPos,
   BOX_PRICES,
   ZONE_COLORS,
@@ -13,6 +12,29 @@ import {
   type BoxZone,
   type BoxStatus,
 } from '@/lib/boxes';
+
+// ── Session helpers ───────────────────────────────────────────
+function getSessionId(): string {
+  if (typeof window === 'undefined') return '';
+  let sid = sessionStorage.getItem('box-session');
+  if (!sid) {
+    sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    sessionStorage.setItem('box-session', sid);
+  }
+  return sid;
+}
+function saveReservation(boxId: string) {
+  sessionStorage.setItem('box-reservation', JSON.stringify({ boxId, at: Date.now() }));
+}
+function clearReservation() {
+  sessionStorage.removeItem('box-reservation');
+}
+function getReservationMs(): number {
+  const raw = sessionStorage.getItem('box-reservation');
+  if (!raw) return 0;
+  const { at } = JSON.parse(raw) as { boxId: string; at: number };
+  return Math.max(0, RESERVATION_MS - (Date.now() - at));
+}
 
 // ── Helpers ──────────────────────────────────────────────────
 function fmtMs(ms: number) {
@@ -32,6 +54,40 @@ function IconBack()  { return <svg width="15" height="15" viewBox="0 0 24 24" fi
 // ── Venue SVG Map ────────────────────────────────────────────
 const SELECTED_STYLE = { fill: '#1e3a5f', stroke: '#60a5fa', text: '#93c5fd' };
 
+// Returns which zones are fully sold out (no available or temp_reserved boxes)
+function soldOutZones(boxes: Box[]): Record<BoxZone, boolean> {
+  const zones: BoxZone[] = ['platinum', 'vip', 'malecon'];
+  const result = {} as Record<BoxZone, boolean>;
+  for (const zone of zones) {
+    const zoneBoxes = boxes.filter(b => b.zone === zone);
+    result[zone] = zoneBoxes.length > 0 && zoneBoxes.every(b => b.status === 'sold');
+  }
+  return result;
+}
+
+// SVG stamp overlay for a sold-out zone
+function SoldOutStamp({ x, y, w, h }: { x: number; y: number; w: number; h: number }) {
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  return (
+    <g pointerEvents="none">
+      {/* dim overlay */}
+      <rect x={x} y={y} width={w} height={h} fill="#000" fillOpacity="0.55" rx="2" />
+      {/* rotated stamp */}
+      <g transform={`rotate(-30, ${cx}, ${cy})`}>
+        <rect x={cx - 72} y={cy - 22} width={144} height={44} rx="4"
+          fill="none" stroke="#ef4444" strokeWidth="3" strokeOpacity="0.9" />
+        <rect x={cx - 68} y={cy - 18} width={136} height={36} rx="3"
+          fill="none" stroke="#ef4444" strokeWidth="1" strokeOpacity="0.5" />
+        <text x={cx} y={cy + 7} textAnchor="middle" fontSize="22"
+          fill="#ef4444" fillOpacity="0.95" fontWeight="900" letterSpacing="6">
+          AGOTADO
+        </text>
+      </g>
+    </g>
+  );
+}
+
 function VenueMap({
   boxes,
   onBoxClick,
@@ -41,6 +97,7 @@ function VenueMap({
   onBoxClick: (box: Box) => void;
   selectedBoxId?: string | null;
 }) {
+  const soldOut = soldOutZones(boxes);
   return (
     <svg
       viewBox="0 0 620 620"
@@ -108,6 +165,11 @@ function VenueMap({
           </g>
         );
       })}
+
+      {/* ── Sold-out zone stamps ── */}
+      {soldOut.platinum && <SoldOutStamp x={221} y={88}  w={368} h={136} />}
+      {soldOut.vip      && <SoldOutStamp x={221} y={247} w={368} h={146} />}
+      {soldOut.malecon  && <SoldOutStamp x={31}  y={71}  w={187} h={322} />}
     </svg>
   );
 }
@@ -307,9 +369,9 @@ function PurchasePanel({
 
   useEffect(() => {
     if (view !== 'box_reserved') return;
-    setTimeLeft(boxService.getMyReservationMs());
+    setTimeLeft(getReservationMs());
     const id = setInterval(() => {
-      const ms = boxService.getMyReservationMs();
+      const ms = getReservationMs();
       setTimeLeft(ms);
       if (ms <= 0) onReset();
     }, 1000);
@@ -595,19 +657,26 @@ export default function MapSection() {
   const [purchaseCtx, setPurchaseCtx] = useState<PurchaseCtx | null>(null);
   const [ticketToken, setTicketToken] = useState<string | null>(null);
 
-  const load = useCallback(() => {
-    setBoxes(boxService.getBoxes());
-    setReservedMs(boxService.getMyReservationMs());
+  const load = useCallback(async () => {
+    try {
+      const res  = await fetch('/api/boxes');
+      const data = await res.json() as { ok: boolean; boxes?: Box[] };
+      if (data.ok && data.boxes) setBoxes(data.boxes);
+    } catch { /* network error — keep current state */ }
+    setReservedMs(getReservationMs());
   }, []);
 
   useEffect(() => { setMounted(true); load(); }, [load]);
-  useEffect(() => { const id = setInterval(load, 5000); return () => clearInterval(id); }, [load]);
+  useEffect(() => {
+    const id = setInterval(load, 5000);
+    return () => clearInterval(id);
+  }, [load]);
 
   // Timer tick for box_reserved
   useEffect(() => {
     if (view !== 'box_reserved') return;
     const id = setInterval(() => {
-      const ms = boxService.getMyReservationMs();
+      const ms = getReservationMs();
       setReservedMs(ms);
       if (ms <= 0) handleReset();
     }, 1000);
@@ -625,10 +694,24 @@ export default function MapSection() {
     setView('box_form');
   };
 
-  const handleBoxReserve = (form: FormData) => {
+  const handleBoxReserve = async (form: FormData) => {
     if (!selectedBox) return;
-    boxService.reserveBox(selectedBox.id);
-    setReservedMs(boxService.getMyReservationMs());
+    const sessionId = getSessionId();
+    const res  = await fetch('/api/boxes/reserve', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ boxId: selectedBox.id, sessionId }),
+    });
+    const data = await res.json() as { ok: boolean; error?: string };
+    if (!data.ok) {
+      // Box was taken — refresh map and reset
+      load();
+      setSelectedBox(null);
+      setView('idle');
+      return;
+    }
+    saveReservation(selectedBox.id);
+    setReservedMs(getReservationMs());
     setBuyerData(form);
     setPurchaseCtx({ type: 'box', price: BOX_PRICES[selectedBox.zone].full });
     setView('box_reserved');
@@ -643,28 +726,43 @@ export default function MapSection() {
   };
 
   // Called by CheckoutPanel on successful payment
-  const handlePaymentSuccess = (orderId: string, token: string) => {
+  const handlePaymentSuccess = async (orderId: string, token: string) => {
     if (purchaseCtx?.type === 'box' && selectedBox && buyerData) {
-      boxService.confirmPurchase(selectedBox.id, {
-        name:         buyerData.name,
-        email:        buyerData.email,
-        phone:        buyerData.phone,
-        dni:          buyerData.dni,
-        entries:      10,
-        purchaseType: 'full',
-        paidAmount:   purchaseCtx.price,
-        purchasedAt:  new Date().toISOString(),
+      const sessionId = getSessionId();
+      await fetch('/api/boxes/confirm', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          boxId: selectedBox.id,
+          sessionId,
+          buyer: {
+            name:         buyerData.name,
+            email:        buyerData.email,
+            phone:        buyerData.phone,
+            dni:          buyerData.dni,
+            entries:      10,
+            purchaseType: 'full',
+            paidAmount:   purchaseCtx.price,
+            purchasedAt:  new Date().toISOString(),
+          },
+        }),
       });
+      clearReservation();
     }
-    console.info('Pago confirmado · orderId:', orderId);
     setTicketToken(token || null);
     setView('success');
     load();
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (selectedBox && (view === 'box_reserved' || view === 'checkout')) {
-      boxService.releaseReservation(selectedBox.id);
+      const sessionId = getSessionId();
+      fetch('/api/boxes/release', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ boxId: selectedBox.id, sessionId }),
+      }).catch(() => {/* non-blocking */});
+      clearReservation();
     }
     setSelectedBox(null);
     setBuyerData(null);

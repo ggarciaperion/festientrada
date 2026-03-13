@@ -105,7 +105,7 @@ export function getBoxSVGPos(box: Box): BoxSVGPos {
 }
 
 // ── Initialize all boxes ─────────────────────────────────────
-function initBoxes(): Box[] {
+export function initBoxes(): Box[] {
   const boxes: Box[] = [];
 
   // PLATINUM: 5 cols × 4 rows = P01–P20

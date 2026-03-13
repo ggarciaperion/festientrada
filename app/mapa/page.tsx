@@ -29,7 +29,7 @@ export default function MapaPage() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-24 pb-16">
         <div className="mb-8">
           <span className="section-label">Selección de Boxes</span>
-          <h1 className="section-title">Mapa Interactivo del Venue</h1>
+          <h1 className="section-title">Mapa Interactivo del Evento</h1>
           <p className="text-slate-400 mt-2 text-sm">
             Haz click en un box disponible para reservarlo · 10 minutos para completar la compra
           </p>

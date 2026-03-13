@@ -57,3 +57,15 @@ export async function kvLRange(key: string, start: number, stop: number): Promis
   const result = await cmd(['LRANGE', key, start, stop]);
   return Array.isArray(result) ? (result as string[]) : [];
 }
+
+/** Delete one key. */
+export async function kvDel(key: string): Promise<void> {
+  if (!kvAvailable()) return;
+  await cmd(['DEL', key]);
+}
+
+/** Fetch multiple keys in a single round-trip (MGET). */
+export async function kvMGet(keys: string[]): Promise<(string | null)[]> {
+  if (!kvAvailable() || keys.length === 0) return keys.map(() => null);
+  return (await cmd(['MGET', ...keys])) as (string | null)[];
+}

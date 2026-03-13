@@ -21,7 +21,8 @@ export async function middleware(request: NextRequest) {
 
   const isProtected =
     (pathname.startsWith('/admin') && pathname !== '/admin/login') ||
-    pathname === '/api/tickets/validated';
+    pathname === '/api/tickets/validated' ||
+    pathname === '/api/boxes/admin';
 
   if (!isProtected) return NextResponse.next();
 
@@ -50,5 +51,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/api/tickets/validated'],
+  matcher: ['/admin/:path*', '/api/tickets/validated', '/api/boxes/admin'],
 };

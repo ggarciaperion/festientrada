@@ -11,7 +11,6 @@ import {
   type SaleType,
 } from '@/lib/promotors';
 import {
-  boxService,
   getBoxSVGPos,
   ZONE_COLORS,
   STATUS_COLORS,
@@ -170,16 +169,30 @@ function SalePanel({
     onModeChange('idle');
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     setError('');
     if (!clientDni || !clientName) { setError('Ingresa DNI y nombre del cliente.'); return; }
     if (price <= 0) { setError('El precio debe ser mayor a 0.'); return; }
 
     if (mode === 'box_form') {
       if (!selectedBox) { setError('No hay box seleccionado.'); return; }
-      const ok = boxService.markBoxSoldByPromotor(
-        selectedBox.id, clientName, clientDni, 8, 'full', price, promotor.id
-      );
+      const res  = await fetch('/api/boxes/admin', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          action: 'mark-sold-promotor',
+          boxId:  selectedBox.id,
+          buyer:  {
+            name:         clientName,
+            dni:          clientDni,
+            entries:      8,
+            purchaseType: 'full',
+            paidAmount:   price,
+            promotorId:   promotor.id,
+          },
+        }),
+      });
+      const ok = (await res.json()).ok;
       if (!ok) { setError('Este box ya no está disponible.'); return; }
       promotorService.addSale({
         promotorId: promotor.id, clientDni, clientName,
@@ -436,9 +449,13 @@ function PromotorPanel({ promotor, onLogout }: { promotor: Promotor; onLogout: (
   // Info mode: clicking a box in idle shows its info in a small tooltip
   const [infoBox, setInfoBox]         = useState<Box | null>(null);
 
-  const loadData = useCallback(() => {
-    setBoxes(boxService.getBoxes());
+  const loadData = useCallback(async () => {
     setSales(promotorService.getSalesByPromotor(promotor.id));
+    try {
+      const res  = await fetch('/api/boxes');
+      const data = await res.json() as { ok: boolean; boxes?: Box[] };
+      if (data.ok && data.boxes) setBoxes(data.boxes);
+    } catch { /* keep current state */ }
   }, [promotor.id]);
 
   useEffect(() => {

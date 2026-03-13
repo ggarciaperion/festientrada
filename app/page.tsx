@@ -216,7 +216,7 @@ export default function Home() {
 
           {/* Links desktop */}
           <div className="hidden md:flex items-center gap-6">
-            <a href="#evento"   className="nav-link">El Evento</a>
+            <a href="#"   className="nav-link">El Evento</a>
             <a href="#artistas" className="nav-link">Artistas</a>
             <a href="#mapa"     className="nav-link">Mapa Boxes</a>
             <a href="#faq"      className="nav-link">FAQ</a>
@@ -397,7 +397,7 @@ export default function Home() {
             <div className="sm:col-span-2 md:col-span-2">
               <p className="font-heading font-bold text-white text-lg mb-2">Perion Entertainment</p>
               <p className="text-slate-400 text-sm leading-relaxed max-w-xs">
-                Organizadores de eventos y experiencias musicales únicas en Perú.
+                Venta oficial de entradas y recaudación para el Festival Cubanada Chancay 2026.
               </p>
             </div>
 
@@ -405,13 +405,9 @@ export default function Home() {
             <div>
               <p className="font-semibold text-white text-sm mb-4">Contacto</p>
               <div className="space-y-2">
-                <a href="mailto:info@perionentertainment.com"
+                <a href="mailto:festientrada@gmail.com"
                    className="block text-sm text-slate-400 hover:text-white transition">
-                  info@perionentertainment.com
-                </a>
-                <a href="tel:+51999999999"
-                   className="block text-sm text-slate-400 hover:text-white transition">
-                  +51 999 999 999
+                  festientrada@gmail.com
                 </a>
                 <p className="text-sm text-slate-400">Lima, Perú</p>
               </div>
@@ -421,7 +417,7 @@ export default function Home() {
             <div>
               <p className="font-semibold text-white text-sm mb-4">Festival</p>
               <div className="space-y-2">
-                <a href="#evento"   className="block text-sm text-slate-400 hover:text-white transition">El Evento</a>
+                <a href="#"   className="block text-sm text-slate-400 hover:text-white transition">El Evento</a>
                 <a href="#artistas" className="block text-sm text-slate-400 hover:text-white transition">Artistas</a>
                 <a href="#mapa"     className="block text-sm text-slate-400 hover:text-white transition">Zonas</a>
                 <a href="#faq"      className="block text-sm text-slate-400 hover:text-white transition">FAQ</a>

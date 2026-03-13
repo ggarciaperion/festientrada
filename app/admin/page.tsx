@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { db, Ticket } from '@/lib/database';
-import { boxService, ZONE_COLORS, STATUS_COLORS, type Box, type BoxStatus } from '@/lib/boxes';
+import { ZONE_COLORS, STATUS_COLORS, type Box, type BoxStatus } from '@/lib/boxes';
 import {
   promotorService,
   SALE_TYPE_LABELS,
@@ -40,14 +40,27 @@ export default function AdminPage() {
 
   useEffect(() => { loadData(); }, []);
 
-  const loadData = () => {
+  const loadData = async () => {
     setTickets(db.getTickets());
     setStats(db.getStats());
-    setBoxes(boxService.getBoxes());
-    setBoxStats(boxService.getStats());
     setPromotors(promotorService.getPromotors());
     setPromotorSales(promotorService.getSales());
     loadQREntries();
+    try {
+      const res  = await fetch('/api/boxes');
+      const data = await res.json() as { ok: boolean; boxes?: Box[] };
+      if (data.ok && data.boxes) {
+        const b = data.boxes;
+        setBoxes(b);
+        setBoxStats({
+          totalBoxes: b.length,
+          available:  b.filter(x => x.status === 'available').length,
+          reserved:   b.filter(x => x.status === 'temp_reserved').length,
+          sold:       b.filter(x => x.status === 'sold').length,
+          revenue:    b.reduce((s, x) => s + x.buyers.reduce((a, by) => a + by.paidAmount, 0), 0),
+        });
+      }
+    } catch { /* Redis might not be available */ }
   };
 
   const loadQREntries = () => {
@@ -61,14 +74,22 @@ export default function AdminPage() {
       .finally(() => setQrLoading(false));
   };
 
-  const handleBoxStatusChange = (boxId: string, status: BoxStatus) => {
-    boxService.adminSetStatus(boxId, status);
+  const handleBoxStatusChange = async (boxId: string, status: BoxStatus) => {
+    await fetch('/api/boxes/admin', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ action: status === 'available' ? 'set-available' : 'set-available', boxId }),
+    });
     loadData();
   };
 
-  const handleResetBoxes = () => {
+  const handleResetBoxes = async () => {
     if (confirm('¿Resetear TODOS los boxes a disponible? Esto borrará todas las ventas de boxes.')) {
-      boxService.adminReset();
+      await fetch('/api/boxes/admin', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ action: 'reset' }),
+      });
       loadData();
     }
   };
@@ -102,9 +123,15 @@ export default function AdminPage() {
     loadData();
   };
 
-  const handleDeleteSale = (saleId: string, boxId?: string) => {
+  const handleDeleteSale = async (saleId: string, boxId?: string) => {
     if (!confirm('¿Eliminar esta venta?')) return;
-    if (boxId) boxService.adminSetStatus(boxId, 'available');
+    if (boxId) {
+      await fetch('/api/boxes/admin', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ action: 'set-available', boxId }),
+      });
+    }
     promotorService.deleteSale(saleId);
     loadData();
   };
