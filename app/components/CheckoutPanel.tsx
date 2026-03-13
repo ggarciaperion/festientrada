@@ -78,9 +78,11 @@ export default function CheckoutPanel({
         if (!mountRef.current) return;
 
         // ── Step 2: load Izipay JS library ──────────────────
-        const KRGlue   = (await import('@lyracom/embedded-form-glue')).default;
-        const endpoint = process.env.NEXT_PUBLIC_IZIPAY_ENDPOINT!;
-        const pubKey   = process.env.NEXT_PUBLIC_IZIPAY_PUBLIC_KEY!;
+        const KRGlue  = (await import('@lyracom/embedded-form-glue')).default;
+        // Endpoint siempre fijo para Izipay Perú; public key desde env o fallback
+        const endpoint = 'https://api.micuentaweb.pe';
+        const pubKey   = process.env.NEXT_PUBLIC_IZIPAY_PUBLIC_KEY
+                      ?? '11406906:testpublickey_ffx4LMrT5epDJ49K87Z3Ol0Wadn80L5o6r5NV7qWWNAeM';
 
         ({ KR } = await KRGlue.loadLibrary(endpoint, pubKey));
         if (!mountRef.current) { KR?.removeForms?.(); return; }
