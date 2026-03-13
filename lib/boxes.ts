@@ -39,7 +39,7 @@ export interface BoxSVGPos {
 
 // ── Prices ───────────────────────────────────────────────────
 export const BOX_PRICES: Record<BoxZone, { full: number; individual: number }> = {
-  platinum: { full: 350, individual: 45 },
+  platinum: { full: 350, individual: 40 },
   vip:      { full: 250, individual: 35 },
   malecon:  { full: 250, individual: 35 },
 };
@@ -115,7 +115,7 @@ function initBoxes(): Box[] {
       boxes.push({
         id: `P${String(num).padStart(2, '0')}`,
         zone: 'platinum', label: `P${String(num).padStart(2, '0')}`,
-        row, col, capacity: 8, entriesAvailable: 8,
+        row, col, capacity: 10, entriesAvailable: 10,
         status: 'available', buyers: [],
       });
     }
@@ -128,7 +128,7 @@ function initBoxes(): Box[] {
       boxes.push({
         id: `V${String(num).padStart(2, '0')}`,
         zone: 'vip', label: `V${String(num).padStart(2, '0')}`,
-        row, col, capacity: 8, entriesAvailable: 8,
+        row, col, capacity: 10, entriesAvailable: 10,
         status: 'available', buyers: [],
       });
     }
@@ -139,7 +139,7 @@ function initBoxes(): Box[] {
     boxes.push({
       id: `M${row + 1}`,
       zone: 'malecon', label: `M${row + 1}`,
-      row, col: 0, capacity: 8, entriesAvailable: 8,
+      row, col: 0, capacity: 10, entriesAvailable: 10,
       status: 'available', buyers: [],
     });
   }
@@ -149,7 +149,7 @@ function initBoxes(): Box[] {
     boxes.push({
       id: `M${row + 11}`,
       zone: 'malecon', label: `M${row + 11}`,
-      row, col: 1, capacity: 8, entriesAvailable: 8,
+      row, col: 1, capacity: 10, entriesAvailable: 10,
       status: 'available', buyers: [],
     });
   }

@@ -85,12 +85,19 @@ function loadIzipayScript(baseUrl: string): Promise<void> {
 }
 
 // ── Props ────────────────────────────────────────────────────
+export interface PurchaseDetails {
+  type: 'box' | 'individual';
+  zone: string;  // 'platinum' | 'vip' | 'malecon' | 'general'
+  qty:  number;
+}
+
 export interface CheckoutPanelProps {
-  amount:      number;
-  description: string;
-  buyerInfo:   { name: string; email: string; phone: string; dni: string };
-  onSuccess:   (orderId: string) => void;
-  onCancel:    () => void;
+  amount:          number;
+  description:     string;
+  buyerInfo:       { name: string; email: string; phone: string; dni: string };
+  purchaseDetails: PurchaseDetails;
+  onSuccess:       (orderId: string, ticketToken: string) => void;
+  onCancel:        () => void;
 }
 
 // ── Component ────────────────────────────────────────────────
@@ -98,6 +105,7 @@ export default function CheckoutPanel({
   amount,
   description,
   buyerInfo,
+  purchaseDetails,
   onSuccess,
   onCancel,
 }: CheckoutPanelProps) {
@@ -175,14 +183,16 @@ export default function CheckoutPanel({
               clientAnswer:    response.clientAnswer,
               rawClientAnswer: response.rawClientAnswer,
               hash:            response.hash,
+              purchaseDetails,
+              buyerInfo,
             }),
           });
 
           const validation = await validateRes.json() as
-            { ok: boolean; orderId?: string; error?: string };
+            { ok: boolean; orderId?: string; ticketToken?: string; error?: string };
 
           if (validation.ok && validation.orderId) {
-            onSuccess(validation.orderId);
+            onSuccess(validation.orderId, validation.ticketToken ?? '');
           } else {
             setError(validation.error ?? 'El pago no se pudo confirmar. Intenta de nuevo.');
             setState('ready');

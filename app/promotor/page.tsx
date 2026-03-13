@@ -185,7 +185,7 @@ function SalePanel({
         promotorId: promotor.id, clientDni, clientName,
         saleType: `box_${selectedBox.zone}` as SaleType,
         zone: selectedBox.zone, boxId: selectedBox.id,
-        entries: 8, price, notes: notes || undefined,
+        entries: 10, price, notes: notes || undefined,
       });
     } else if (mode === 'individual_form') {
       const saleType = `individual_${zone}` as SaleType;
@@ -310,7 +310,7 @@ function SalePanel({
             </div>
             <div className="flex justify-between mt-1">
               <span className="text-xs text-slate-400">Capacidad</span>
-              <span className="text-xs text-slate-300">8 personas</span>
+              <span className="text-xs text-slate-300">10 personas</span>
             </div>
           </div>
         )}

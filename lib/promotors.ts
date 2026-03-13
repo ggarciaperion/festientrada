@@ -47,10 +47,10 @@ export const SALE_TYPE_PRICES: Record<SaleType, number | null> = {
   box_platinum:       350,
   box_vip:            250,
   box_malecon:        250,
-  individual_platinum: 45,
+  individual_platinum: 40,
   individual_vip:      35,
   individual_malecon:  35,
-  entrada_general:     null, // precio libre
+  entrada_general:     10,
 };
 
 export const SALE_TYPE_ZONE: Record<SaleType, Sale['zone']> = {

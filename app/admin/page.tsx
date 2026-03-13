@@ -33,6 +33,11 @@ export default function AdminPage() {
   const [pForm, setPForm] = useState({ name: '', dni: '', password: '', status: 'active' as 'active' | 'inactive' });
   const [pFormError, setPFormError] = useState('');
 
+  // QR Validados (Redis)
+  interface QREntry { ticketId: string; orderId: string; name: string; zone: string; type: string; qty: number; at: string; }
+  const [qrEntries,   setQrEntries]   = useState<QREntry[]>([]);
+  const [qrLoading,   setQrLoading]   = useState(false);
+
   useEffect(() => { loadData(); }, []);
 
   const loadData = () => {
@@ -42,6 +47,18 @@ export default function AdminPage() {
     setBoxStats(boxService.getStats());
     setPromotors(promotorService.getPromotors());
     setPromotorSales(promotorService.getSales());
+    loadQREntries();
+  };
+
+  const loadQREntries = () => {
+    setQrLoading(true);
+    fetch('/api/tickets/validated')
+      .then(r => r.json())
+      .then((data: { ok: boolean; entries?: QREntry[] }) => {
+        if (data.ok && data.entries) setQrEntries(data.entries);
+      })
+      .catch(() => {/* Redis might not be configured */})
+      .finally(() => setQrLoading(false));
   };
 
   const handleBoxStatusChange = (boxId: string, status: BoxStatus) => {
@@ -142,6 +159,15 @@ export default function AdminPage() {
               <button onClick={loadData} className="btn-secondary text-sm px-4 py-2">🔄 Actualizar</button>
               <Link href="/mapa" className="btn-secondary text-sm px-4 py-2">Ver Mapa</Link>
               <Link href="/" className="btn-primary text-sm px-4 py-2">Ver Sitio</Link>
+              <button
+                onClick={async () => {
+                  await fetch('/api/admin/auth', { method: 'DELETE' });
+                  window.location.href = '/admin/login';
+                }}
+                className="btn-secondary text-sm px-4 py-2 text-rose-400 border-rose-500/30 hover:border-rose-500/60"
+              >
+                Cerrar sesión
+              </button>
             </div>
           </div>
 
@@ -643,6 +669,82 @@ export default function AdminPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+
+        {/* ── QR Validados (Redis) ── */}
+        <div className="mt-10">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-white font-bold text-lg">🔍 QR Validados en Puerta</h2>
+              <p className="text-slate-500 text-xs mt-0.5">Registros en tiempo real desde Redis</p>
+            </div>
+            <div className="flex items-center gap-3">
+              {/* Counter badge */}
+              <div className="bg-emerald-500/15 border border-emerald-500/30 rounded-xl px-4 py-2 text-center">
+                <p className="text-emerald-400 font-black text-2xl leading-none">{qrEntries.length}</p>
+                <p className="text-emerald-600 text-[10px] uppercase tracking-wider mt-0.5">validados</p>
+              </div>
+              <button
+                onClick={loadQREntries}
+                disabled={qrLoading}
+                className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-slate-400 text-xs hover:bg-white/10 transition disabled:opacity-50"
+              >
+                {qrLoading ? '...' : '🔄'}
+              </button>
+            </div>
+          </div>
+
+          {qrEntries.length === 0 ? (
+            <div className="card p-8 text-center">
+              <p className="text-slate-600 text-sm">
+                {qrLoading ? 'Cargando...' : 'Ningún QR validado aún'}
+              </p>
+            </div>
+          ) : (
+            <div className="card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/8">
+                      {['Hora', 'Nombre', 'Zona', 'Tipo', 'Pulseras', 'Orden'].map(h => (
+                        <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {qrEntries.map((e, i) => {
+                      const zoneColors: Record<string, string> = { platinum: '#FACC15', vip: '#a855f7', malecon: '#0ea5e9', general: '#3b82f6' };
+                      const zoneLabels: Record<string, string> = { platinum: 'PLATINUM', vip: 'VIP', malecon: 'MALECÓN', general: 'GENERAL' };
+                      const pulseras = e.type === 'box' ? 10 : e.qty;
+                      return (
+                        <tr key={i} className="border-b border-white/5 hover:bg-emerald-500/[0.03]">
+                          <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">
+                            {new Date(e.at).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                            <span className="block text-slate-600">{new Date(e.at).toLocaleDateString('es-PE')}</span>
+                          </td>
+                          <td className="px-4 py-3 text-white font-semibold">{e.name}</td>
+                          <td className="px-4 py-3">
+                            <span className="text-xs font-bold" style={{ color: zoneColors[e.zone] ?? '#94a3b8' }}>
+                              {zoneLabels[e.zone] ?? e.zone.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-slate-400 text-xs">
+                            {e.type === 'box' ? 'Box completo' : 'Individual'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-emerald-400 font-bold">{pulseras}</span>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-xs text-slate-500">
+                            {e.orderId.slice(-10).toUpperCase()}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

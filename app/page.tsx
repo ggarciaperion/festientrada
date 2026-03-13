@@ -27,24 +27,6 @@ const ZONES = [
     ],
   },
   {
-    id:       'supervip',
-    name:     'SUPER VIP',
-    label:    'Acceso Privilegiado',
-    price:    150,
-    accent:   '#DC2626',
-    text:     'text-rose-400',
-    bg:       'bg-rose-600',
-    dim:      'bg-rose-500/10',
-    border:   'border-rose-500/30',
-    badge:    'MÁS POPULAR',
-    features: [
-      'Zona preferencial demarcada',
-      'Acceso a barra exclusiva',
-      'Vista privilegiada del escenario',
-      'Ingreso con fila preferencial',
-    ],
-  },
-  {
     id:       'vip',
     name:     'VIP',
     label:    'Zona Premium',
@@ -114,7 +96,7 @@ const FAQ = [
   },
   {
     q: '¿Cuál es el horario del evento?',
-    a: 'El festival inicia a las 20:00 horas del Domingo 29 de Marzo de 2026. Las puertas abrirán a las 19:00. Te recomendamos llegar con anticipación.',
+    a: 'El festival inicia a las 4:00 PM del Domingo 29 de Marzo de 2026. Te recomendamos llegar con anticipación.',
   },
   {
     q: '¿Qué pasa si pierdo mi ticket?',
@@ -241,7 +223,7 @@ export default function Home() {
           </div>
 
           {/* CTA */}
-          <Link href="/comprar" className="btn-primary text-sm px-5 py-2.5 shrink-0 hidden sm:inline-flex">
+          <Link href="/mapa" className="btn-primary text-sm px-5 py-2.5 shrink-0 hidden sm:inline-flex">
             Comprar entradas
           </Link>
         </div>
@@ -272,7 +254,7 @@ export default function Home() {
           {/* Subtitle */}
           <p className="text-slate-400 text-base sm:text-xl max-w-xl mx-auto mb-3 sm:mb-8">
             El primer festival de salsa y timba en el Malecón del Puerto de Chancay.
-            Una noche de ritmo, sabor y baile frente al mar.
+            Un atardecer de ritmo, sabor y baile frente al mar.
           </p>
 
           {/* Info pills */}
@@ -292,15 +274,15 @@ export default function Home() {
           </div>
 
           {/* Countdown */}
-          {mounted && <Countdown targetDate="2026-03-29T20:00:00" />}
+          {mounted && <Countdown targetDate="2026-03-29T16:00:00" />}
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mt-5 sm:mt-10">
             <a href="#mapa" className="btn-primary text-base px-8 py-3.5">
               Comprar Entradas
             </a>
-            <a href="#mapa" className="btn-secondary text-base px-8 py-3.5">
-              Ver Zonas y Precios
+            <a href="#artistas" className="btn-secondary text-base px-8 py-3.5">
+              Ver Artistas
             </a>
           </div>
 
@@ -428,9 +410,9 @@ export default function Home() {
               <div className="space-y-2">
                 <a href="#evento"   className="block text-sm text-slate-400 hover:text-white transition">El Evento</a>
                 <a href="#artistas" className="block text-sm text-slate-400 hover:text-white transition">Artistas</a>
-                <a href="#zonas"    className="block text-sm text-slate-400 hover:text-white transition">Zonas</a>
+                <a href="#mapa"     className="block text-sm text-slate-400 hover:text-white transition">Zonas</a>
                 <a href="#faq"      className="block text-sm text-slate-400 hover:text-white transition">FAQ</a>
-                <Link href="/comprar"
+                <Link href="/mapa"
                       className="block text-sm text-amber-400 hover:text-amber-300 transition font-semibold mt-1">
                   Comprar Entradas →
                 </Link>

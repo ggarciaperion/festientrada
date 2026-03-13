@@ -152,8 +152,113 @@ function FormFields({
             className={`form-input text-sm py-3 ${errors[id] ? 'form-input-error' : ''}`}
           />
           {errors[id] && <p className="text-[11px] text-rose-400 mt-1">{errors[id]}</p>}
+          {id === 'email' && !errors[id] && (
+            <p className="text-[11px] text-amber-500/80 mt-1 flex items-center gap-1">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{flexShrink:0}}>
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              Tu QR de ingreso se enviará a este correo. Usa uno válido al que tengas acceso.
+            </p>
+          )}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ── Simulate checkout (test mode) ────────────────────────────
+function SimulateCheckout({
+  amount,
+  description,
+  buyerInfo,
+  purchaseDetails,
+  onSuccess,
+  onCancel,
+}: {
+  amount:          number;
+  description:     string;
+  buyerInfo:       FormData;
+  purchaseDetails: { type: 'box' | 'individual'; zone: string; qty: number };
+  onSuccess:       (orderId: string, ticketToken: string) => void;
+  onCancel:        () => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState('');
+
+  const simulate = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res  = await fetch('/api/payment/simulate', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ buyerInfo, purchaseDetails, amount }),
+      });
+      const data = await res.json() as { ok: boolean; orderId?: string; ticketToken?: string; error?: string };
+      if (data.ok && data.orderId) {
+        onSuccess(data.orderId, data.ticketToken ?? '');
+      } else {
+        setError(data.error ?? 'Error simulando pago');
+      }
+    } catch {
+      setError('Error de red');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <button onClick={onCancel}
+        className="flex items-center gap-1 text-slate-500 hover:text-slate-300 text-xs mb-4 transition">
+        <IconBack /> Volver
+      </button>
+
+      <div className="bg-amber-500/8 border border-amber-500/20 rounded-xl p-3 mb-4 flex items-center justify-between">
+        <div>
+          <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Total a pagar</p>
+          <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[160px]">{description}</p>
+        </div>
+        <p className="font-heading font-black text-2xl text-amber-400">S/ {amount}</p>
+      </div>
+
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 mb-4">
+        <p className="text-amber-400 font-bold text-xs uppercase tracking-wider mb-1">Modo de prueba</p>
+        <p className="text-slate-400 text-xs">La pasarela de pago está desactivada. Este botón simula un pago exitoso y genera el QR y correo de confirmación.</p>
+      </div>
+
+      <button
+        onClick={simulate}
+        disabled={loading}
+        className="btn-primary w-full justify-center py-3.5 text-sm"
+      >
+        {loading ? 'Procesando...' : 'Simular pago exitoso (PRUEBA)'}
+      </button>
+      {error && <p className="text-rose-400 text-xs mt-2 text-center">{error}</p>}
+    </div>
+  );
+}
+
+// ── Ticket QR display ────────────────────────────────────────
+function TicketQR({ token }: { token: string }) {
+  const [qrSrc, setQrSrc] = useState('');
+
+  useEffect(() => {
+    const url = `${window.location.origin}/validar/${token}`;
+    import('qrcode').then(({ default: QRCode }) =>
+      QRCode.toDataURL(url, { width: 200, margin: 1, errorCorrectionLevel: 'M' })
+        .then(setQrSrc)
+        .catch(console.error)
+    );
+  }, [token]);
+
+  if (!qrSrc) {
+    return <div className="w-[180px] h-[180px] bg-white/5 rounded-xl animate-pulse mx-auto" />;
+  }
+  return (
+    <div className="bg-white rounded-xl p-2 inline-block">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={qrSrc} alt="QR de entrada" className="w-[168px] h-[168px]" />
     </div>
   );
 }
@@ -177,6 +282,7 @@ function PurchasePanel({
   view,
   selectedBox,
   reservedMs,
+  ticketToken,
   onBoxReserve,
   onProceedToCheckout,
   onIndividualProceed,
@@ -186,6 +292,7 @@ function PurchasePanel({
   view: PanelView;
   selectedBox: Box | null;
   reservedMs: number;
+  ticketToken: string | null;
   onBoxReserve: (form: FormData) => void;
   onProceedToCheckout: () => void;
   onIndividualProceed: (zone: BoxZone | 'general', entries: number, form: FormData) => void;
@@ -228,7 +335,7 @@ function PurchasePanel({
             <p className="font-bold text-white text-sm">Comprar Box completo</p>
           </div>
           <p className="text-xs text-slate-500 mb-3 leading-relaxed">
-            Reserva un box para <strong className="text-slate-300">8 personas</strong>. Selecciona directamente en el mapa un box verde disponible.
+            Reserva un box para <strong className="text-slate-300">10 personas</strong>. Selecciona directamente en el mapa un box verde disponible.
           </p>
           <div className="grid grid-cols-3 gap-1.5 mb-1">
             {(['platinum', 'vip', 'malecon'] as BoxZone[]).map(z => (
@@ -296,7 +403,7 @@ function PurchasePanel({
             </div>
             <div className="text-right">
               <p className="text-[10px] text-slate-500">Capacidad</p>
-              <p className="font-bold text-white text-sm">8 personas</p>
+              <p className="font-bold text-white text-sm">10 personas</p>
             </div>
           </div>
           <div className="border-t border-white/10 pt-2 mt-2 flex items-center justify-between">
@@ -343,7 +450,7 @@ function PurchasePanel({
           <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">Resumen de compra</p>
           {[
             { label: 'Box',    value: `${selectedBox.id} · ${zone.label}` },
-            { label: 'Tipo',   value: 'Box completo (8 personas)' },
+            { label: 'Tipo',   value: 'Box completo (10 personas)' },
           ].map(({ label, value }) => (
             <div key={label} className="flex justify-between text-sm py-1.5 border-b border-white/5 last:border-0">
               <span className="text-slate-400 shrink-0 mr-3">{label}</span>
@@ -448,17 +555,25 @@ function PurchasePanel({
   // ── SUCCESS ──────────────────────────────────────────────
   if (view === 'success') {
     return (
-      <div className="text-center py-6">
-        <div className="w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
+      <div className="text-center py-4">
+        <div className="w-14 h-14 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mx-auto mb-3">
           <IconCheck />
         </div>
-        <h3 className="font-heading font-black text-white text-xl mb-2">¡Pago confirmado!</h3>
+        <h3 className="font-heading font-black text-white text-xl mb-1">¡Pago confirmado!</h3>
         <p className="text-slate-400 text-sm mb-1">
           {selectedBox ? `Box ${selectedBox.id} · ${ZONE_COLORS[selectedBox.zone].label}` : 'Entradas individuales'}
         </p>
-        <p className="text-slate-500 text-xs mb-6">
-          Recibirás tu confirmación por correo electrónico.
-        </p>
+
+        <div className="bg-emerald-500/8 border border-emerald-500/20 rounded-xl p-4 mb-5 text-left">
+          <p className="text-emerald-400 font-bold text-xs uppercase tracking-wider mb-1">
+            Revisa tu correo
+          </p>
+          <p className="text-slate-400 text-xs leading-relaxed">
+            Te enviamos un correo de confirmación con tu <strong className="text-white">código QR de acceso</strong>.
+            Preséntalo en la puerta el día del evento para recoger tu pulsera.
+          </p>
+        </div>
+
         <button onClick={onReset} className="btn-primary w-full justify-center py-3.5">
           Ver mapa actualizado
         </button>
@@ -478,6 +593,7 @@ export default function MapSection() {
   const [mounted,     setMounted]     = useState(false);
   const [buyerData,   setBuyerData]   = useState<FormData | null>(null);
   const [purchaseCtx, setPurchaseCtx] = useState<PurchaseCtx | null>(null);
+  const [ticketToken, setTicketToken] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setBoxes(boxService.getBoxes());
@@ -527,21 +643,21 @@ export default function MapSection() {
   };
 
   // Called by CheckoutPanel on successful payment
-  const handlePaymentSuccess = (orderId: string) => {
+  const handlePaymentSuccess = (orderId: string, token: string) => {
     if (purchaseCtx?.type === 'box' && selectedBox && buyerData) {
       boxService.confirmPurchase(selectedBox.id, {
         name:         buyerData.name,
         email:        buyerData.email,
         phone:        buyerData.phone,
         dni:          buyerData.dni,
-        entries:      8,
+        entries:      10,
         purchaseType: 'full',
         paidAmount:   purchaseCtx.price,
         purchasedAt:  new Date().toISOString(),
       });
     }
-    // For individual entries, no box state to update (no physical seat allocation)
     console.info('Pago confirmado · orderId:', orderId);
+    setTicketToken(token || null);
     setView('success');
     load();
   };
@@ -553,6 +669,7 @@ export default function MapSection() {
     setSelectedBox(null);
     setBuyerData(null);
     setPurchaseCtx(null);
+    setTicketToken(null);
     setView('idle');
     load();
   };
@@ -625,18 +742,39 @@ export default function MapSection() {
         {/* ── Right panel ── */}
         <div className="card p-5">
           {view === 'checkout' && purchaseCtx && buyerData ? (
-            <CheckoutPanel
-              amount={purchaseCtx.price}
-              description={checkoutDescription}
-              buyerInfo={buyerData}
-              onSuccess={(orderId) => handlePaymentSuccess(orderId)}
-              onCancel={handleReset}
-            />
+            process.env.NEXT_PUBLIC_SIMULATE_PAYMENT === 'true' ? (
+              <SimulateCheckout
+                amount={purchaseCtx.price}
+                description={checkoutDescription}
+                buyerInfo={buyerData}
+                purchaseDetails={
+                  purchaseCtx.type === 'box'
+                    ? { type: 'box', zone: selectedBox?.zone ?? 'platinum', qty: 10 }
+                    : { type: 'individual', zone: purchaseCtx.zone, qty: purchaseCtx.entries }
+                }
+                onSuccess={handlePaymentSuccess}
+                onCancel={handleReset}
+              />
+            ) : (
+              <CheckoutPanel
+                amount={purchaseCtx.price}
+                description={checkoutDescription}
+                buyerInfo={buyerData}
+                purchaseDetails={
+                  purchaseCtx.type === 'box'
+                    ? { type: 'box', zone: selectedBox?.zone ?? 'platinum', qty: 10 }
+                    : { type: 'individual', zone: purchaseCtx.zone, qty: purchaseCtx.entries }
+                }
+                onSuccess={handlePaymentSuccess}
+                onCancel={handleReset}
+              />
+            )
           ) : (
             <PurchasePanel
               view={view}
               selectedBox={selectedBox}
               reservedMs={reservedMs}
+              ticketToken={ticketToken}
               onBoxReserve={handleBoxReserve}
               onProceedToCheckout={() => setView('checkout')}
               onIndividualProceed={handleIndividualProceed}
