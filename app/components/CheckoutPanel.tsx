@@ -54,14 +54,22 @@ export default function CheckoutPanel({
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
 
-  const orderIdRef    = useRef('');
-  const onSuccessRef  = useRef(onSuccess);
+  const orderIdRef     = useRef('');
+  const onSuccessRef   = useRef(onSuccess);
   onSuccessRef.current = onSuccess;
-  const mountRef      = useRef(true);
+  const mountRef       = useRef(true);
+  // Container ref — el div kr-embedded se crea via DOM para que React nunca lo toque
+  const containerRef   = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     mountRef.current = true;
     let KR: any = null;
+
+    // Crear kr-embedded fuera del control de React para que Izipay pueda
+    // inyectar iframes libremente sin que el reconciliador de React los borre
+    const krDiv = document.createElement('div');
+    krDiv.className = 'kr-embedded';
+    containerRef.current?.appendChild(krDiv);
 
     (async () => {
       try {
@@ -78,13 +86,11 @@ export default function CheckoutPanel({
         if (!mountRef.current) return;
 
         // ── Step 2: load Izipay JS library ──────────────────
-        const KRGlue  = (await import('@lyracom/embedded-form-glue')).default;
-        // Endpoint siempre fijo para Izipay Perú; public key desde env o fallback
-        const endpoint = 'https://api.micuentaweb.pe';
-        const pubKey   = process.env.NEXT_PUBLIC_IZIPAY_PUBLIC_KEY
-                      ?? '11406906:testpublickey_ffx4LMrT5epDJ49K87Z3Ol0Wadn80L5o6r5NV7qWWNAeM';
+        const KRGlue = (await import('@lyracom/embedded-form-glue')).default;
+        const pubKey = process.env.NEXT_PUBLIC_IZIPAY_PUBLIC_KEY
+                    ?? '11406906:testpublickey_ffx4LMrT5epDJ49K87Z3Ol0Wadn80L5o6r5NV7qWWNAeM';
 
-        ({ KR } = await KRGlue.loadLibrary(endpoint, pubKey));
+        ({ KR } = await KRGlue.loadLibrary('https://api.micuentaweb.pe', pubKey));
         if (!mountRef.current) { KR?.removeForms?.(); return; }
 
         // ── Step 3: configure form ───────────────────────────
@@ -122,7 +128,7 @@ export default function CheckoutPanel({
             setError('Error de conexión. Intenta de nuevo.');
           }
 
-          return false; // prevent Izipay redirect
+          return false;
         });
 
       } catch (e) {
@@ -135,6 +141,7 @@ export default function CheckoutPanel({
     return () => {
       mountRef.current = false;
       try { KR?.removeForms?.(); } catch { /* ignore */ }
+      try { containerRef.current?.removeChild(krDiv); } catch { /* ignore */ }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -158,26 +165,18 @@ export default function CheckoutPanel({
         <p className="font-heading font-black text-2xl text-amber-400">S/ {amount}</p>
       </div>
 
-      {/* Izipay embedded form — siempre en el DOM y visible para que KR pueda inyectar los iframes */}
-      <div style={{ position: 'relative', minHeight: loading ? '120px' : 'auto' }}>
-        {/* Spinner encima del form mientras carga */}
-        {loading && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
-                        alignItems: 'center', justifyContent: 'center', gap: '12px', zIndex: 10 }}>
-            <IconSpin />
-            <p className="text-xs text-slate-500">Cargando formulario de pago seguro...</p>
-          </div>
-        )}
-        <div className="kr-embedded">
-          <div className="kr-pan" />
-          <div className="kr-expiry" />
-          <div className="kr-security-code" />
-          <button className="kr-payment-button" />
-          <div className="kr-form-error" />
+      {/* Spinner mientras Izipay carga */}
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-10 gap-3">
+          <IconSpin />
+          <p className="text-xs text-slate-500">Cargando formulario de pago seguro...</p>
         </div>
-      </div>
+      )}
 
-      {/* Error message */}
+      {/* Contenedor donde se inyecta kr-embedded via DOM (fuera de React) */}
+      <div ref={containerRef} />
+
+      {/* Error */}
       {error && (
         <p className="mt-3 text-[12px] text-rose-400 bg-rose-500/8 border border-rose-500/20 rounded-lg px-3 py-2">
           {error}
