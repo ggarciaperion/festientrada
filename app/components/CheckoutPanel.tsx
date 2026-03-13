@@ -164,8 +164,16 @@ export default function CheckoutPanel({
         </div>
       )}
 
-      {/* Izipay embedded form — always in DOM so KR can attach */}
-      <div className="kr-embedded" style={{ display: loading ? 'none' : 'block' }} />
+      {/* Izipay embedded form — los divs internos fuerzan el formulario de tarjeta directo */}
+      <div style={{ display: loading ? 'none' : 'block' }}>
+        <div className="kr-embedded">
+          <div className="kr-pan" />
+          <div className="kr-expiry" />
+          <div className="kr-security-code" />
+          <button className="kr-payment-button" />
+          <div className="kr-form-error" />
+        </div>
+      </div>
 
       {/* Error message */}
       {error && (
