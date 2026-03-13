@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { initMercadoPago, CardPayment } from '@mercadopago/sdk-react';
+import { useState, useEffect, useRef } from 'react';
 
 // ── Icons ────────────────────────────────────────────────────
 function IconSpin() {
@@ -25,17 +24,6 @@ function IconLock() {
       <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
     </svg>
   );
-}
-
-// ── MP initialization (module-level, runs once) ───────────────
-let mpInitialized = false;
-function ensureMP() {
-  if (mpInitialized) return;
-  const key = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY;
-  if (key) {
-    initMercadoPago(key, { locale: 'es-PE' });
-    mpInitialized = true;
-  }
 }
 
 // ── Props ────────────────────────────────────────────────────
@@ -63,83 +51,92 @@ export default function CheckoutPanel({
   onSuccess,
   onCancel,
 }: CheckoutPanelProps) {
-  const [ready,   setReady]   = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
-  const onSuccessRef           = useRef(onSuccess);
-  onSuccessRef.current         = onSuccess;
+
+  const orderIdRef    = useRef('');
+  const onSuccessRef  = useRef(onSuccess);
+  onSuccessRef.current = onSuccess;
+  const mountRef      = useRef(true);
 
   useEffect(() => {
-    ensureMP();
-    // Small delay so MP SDK fully loads before rendering the Brick
-    const t = setTimeout(() => setReady(true), 150);
-    return () => clearTimeout(t);
-  }, []);
+    mountRef.current = true;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let KR: any = null;
 
-  // Stable reference — prevents Brick from reinitializing on parent re-renders
-  const brickInit = useMemo(() => ({
-    amount,
-    payer: {
-      email:          buyerInfo.email,
-      identification: { type: 'DNI', number: buyerInfo.dni },
-    },
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), []);
+    (async () => {
+      try {
+        // ── Step 1: get formToken from our backend ──────────
+        const tkRes  = await fetch('/api/payment/create-token', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ amount, buyerInfo, purchaseDetails }),
+        });
+        const tkData = await tkRes.json() as { ok: boolean; formToken?: string; orderId?: string; error?: string };
+        if (!tkData.ok || !tkData.formToken) throw new Error(tkData.error ?? 'Error al iniciar el pago');
 
-  const handleSubmit = async (formData: {
-    token?:             string;
-    payment_method_id?: string;
-    issuer_id?:         string | number;
-    installments?:      number;
-    transaction_amount?: number;
-    payer?:             { email?: string; identification?: { type: string; number: string } };
-  }) => {
-    setError('');
-    try {
-      const res = await fetch('/api/payment/process', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token:              formData.token,
-          payment_method_id:  formData.payment_method_id,
-          issuer_id:          formData.issuer_id,
-          installments:       formData.installments ?? 1,
-          transaction_amount: formData.transaction_amount ?? amount,
-          payer:              formData.payer,
-          // Our controlled fields:
-          amount,
-          email:           buyerInfo.email,
-          buyerInfo,
-          purchaseDetails,
-        }),
-      });
+        orderIdRef.current = tkData.orderId ?? '';
+        if (!mountRef.current) return;
 
-      const data = await res.json() as {
-        ok:          boolean;
-        orderId?:    string;
-        ticketToken?: string;
-        error?:      string;
-        pending?:    boolean;
-      };
+        // ── Step 2: load Izipay JS library ──────────────────
+        const KRGlue   = (await import('@lyracom/embedded-form-glue')).default;
+        const endpoint = process.env.NEXT_PUBLIC_IZIPAY_ENDPOINT!;
+        const pubKey   = process.env.NEXT_PUBLIC_IZIPAY_PUBLIC_KEY!;
 
-      if (!data.ok) {
-        const msg = data.error ?? 'Error al procesar el pago. Intenta de nuevo.';
-        setError(msg);
-        throw new Error(msg);
+        ({ KR } = await KRGlue.loadLibrary(endpoint, pubKey));
+        if (!mountRef.current) { KR?.removeForms?.(); return; }
+
+        // ── Step 3: configure form ───────────────────────────
+        await KR.setFormConfig({ formToken: tkData.formToken, 'kr-language': 'es-ES' });
+        if (!mountRef.current) { KR?.removeForms?.(); return; }
+
+        setLoading(false);
+
+        // ── Step 4: handle payment submission ────────────────
+        KR.onSubmit(async (r: { rawClientAnswer: string; hash: string }) => {
+          if (!mountRef.current) return false;
+          setError('');
+
+          try {
+            const vRes  = await fetch('/api/payment/process', {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body:    JSON.stringify({
+                rawClientAnswer: r.rawClientAnswer,
+                hash:            r.hash,
+                buyerInfo,
+                purchaseDetails,
+                amount,
+                orderId: orderIdRef.current,
+              }),
+            });
+            const vData = await vRes.json() as { ok: boolean; orderId?: string; ticketToken?: string; error?: string };
+
+            if (vData.ok) {
+              onSuccessRef.current(vData.orderId ?? '', vData.ticketToken ?? '');
+            } else {
+              setError(vData.error ?? 'Pago no aprobado. Intenta de nuevo.');
+            }
+          } catch {
+            setError('Error de conexión. Intenta de nuevo.');
+          }
+
+          return false; // prevent Izipay redirect
+        });
+
+      } catch (e) {
+        if (!mountRef.current) return;
+        setError(e instanceof Error ? e.message : 'Error al cargar el formulario de pago');
+        setLoading(false);
       }
+    })();
 
-      onSuccessRef.current(data.orderId ?? '', data.ticketToken ?? '');
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Error al procesar el pago';
-      setError(msg);
-      throw e; // Let the Brick re-enable its submit button
-    }
-  };
-
-  const handleBrickError = (err: { message?: string; type?: string }) => {
-    // Brick-level errors (invalid card format, etc.) — no need to setError,
-    // the Brick shows inline validation messages itself
-    console.error('MP Brick error:', err);
-  };
+    return () => {
+      mountRef.current = false;
+      try { KR?.removeForms?.(); } catch { /* ignore */ }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div>
@@ -160,27 +157,18 @@ export default function CheckoutPanel({
         <p className="font-heading font-black text-2xl text-amber-400">S/ {amount}</p>
       </div>
 
-      {/* Loading skeleton */}
-      {!ready && (
+      {/* Loading state */}
+      {loading && (
         <div className="flex flex-col items-center justify-center py-10 gap-3">
           <IconSpin />
           <p className="text-xs text-slate-500">Cargando formulario de pago seguro...</p>
         </div>
       )}
 
-      {/* MercadoPago Card Payment Brick */}
-      {ready && (
-        <CardPayment
-          initialization={brickInit}
-          customization={{
-            paymentMethods: { maxInstallments: 1 },
-          }}
-          onSubmit={handleSubmit}
-          onError={handleBrickError}
-        />
-      )}
+      {/* Izipay embedded form — always in DOM so KR can attach */}
+      <div className="kr-embedded" style={{ display: loading ? 'none' : 'block' }} />
 
-      {/* Error from payment processing */}
+      {/* Error message */}
       {error && (
         <p className="mt-3 text-[12px] text-rose-400 bg-rose-500/8 border border-rose-500/20 rounded-lg px-3 py-2">
           {error}
@@ -189,7 +177,7 @@ export default function CheckoutPanel({
 
       {/* Security badge */}
       <p className="text-center text-[10px] text-slate-700 mt-4 flex items-center justify-center gap-1">
-        <IconLock /> Pago 100% seguro · Tarjeta débito/crédito · Procesado por MercadoPago
+        <IconLock /> Pago 100% seguro · Tarjeta débito/crédito · Procesado por Izipay
       </p>
     </div>
   );

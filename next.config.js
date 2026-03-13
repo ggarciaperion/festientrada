@@ -13,7 +13,6 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ['@mercadopago/sdk-react'],
   async headers() {
     return [
       {

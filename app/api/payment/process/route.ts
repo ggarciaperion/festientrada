@@ -1,72 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createPayment } from '@/lib/mercadopago';
+import crypto from 'crypto';
 import { generateTicketToken } from '@/lib/tickets';
 import { sendConfirmationEmail } from '@/lib/email';
 
+const IZIPAY_HMAC = process.env.IZIPAY_HMAC!;
+
 // POST /api/payment/process
-// Receives tokenized card data from the MercadoPago Card Payment Brick.
-// Creates the actual charge via MP Payments API, then generates a signed ticket token.
+// Validates the Izipay payment signature and generates a signed ticket token.
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null) as {
-    token:             string;
-    payment_method_id: string;
-    issuer_id?:        string | number;
-    installments:      number;
-    transaction_amount: number;
-    payer?:            { email?: string; identification?: { type: string; number: string } };
-    // Extra fields sent by our CheckoutPanel
-    amount?:           number;
-    email?:            string;
-    buyerInfo?:        { name: string; email: string; phone: string; dni: string };
-    purchaseDetails?:  { type: 'box' | 'individual'; zone: string; qty: number };
+    rawClientAnswer: string;
+    hash:            string;
+    buyerInfo:       { name: string; email: string; phone: string; dni: string };
+    purchaseDetails: { type: 'box' | 'individual'; zone: string; qty: number };
+    amount:          number;
+    orderId?:        string;
   } | null;
 
-  if (!body?.token || !body?.payment_method_id) {
+  if (!body?.rawClientAnswer || !body?.hash) {
     return NextResponse.json({ ok: false, error: 'Datos de pago incompletos' }, { status: 400 });
   }
 
-  // Use amount from buyerInfo flow (our controlled value), fallback to Brick's value
-  const amount = body.amount ?? body.transaction_amount;
-  const email  = body.email  ?? body.payer?.email ?? '';
+  // ── 1. Verify HMAC-SHA256 signature ─────────────────────────
+  const computed = crypto
+    .createHmac('sha256', IZIPAY_HMAC)
+    .update(body.rawClientAnswer)
+    .digest('hex');
 
-  if (!amount || !email) {
-    return NextResponse.json({ ok: false, error: 'Monto o correo faltante' }, { status: 400 });
+  if (computed !== body.hash) {
+    console.error('Izipay HMAC mismatch', { computed, received: body.hash });
+    return NextResponse.json({ ok: false, error: 'Firma de pago inválida' }, { status: 400 });
   }
 
-  // Split full name for MP
-  const nameParts = (body.buyerInfo?.name ?? '').trim().split(/\s+/);
-  const firstName = nameParts[0] ?? '';
-  const lastName  = nameParts.slice(1).join(' ') || undefined;
-
-  const result = await createPayment({
-    token:           body.token,
-    paymentMethodId: body.payment_method_id,
-    issuerId:        body.issuer_id,
-    installments:    body.installments ?? 1,
-    amount,
-    email,
-    firstName,
-    lastName,
-    dniNumber:       body.buyerInfo?.dni ?? body.payer?.identification?.number,
-  });
-
-  if (!result.ok) {
-    return NextResponse.json({ ok: false, error: result.error }, { status: 502 });
+  // ── 2. Parse client answer ───────────────────────────────────
+  let clientAnswer: {
+    orderStatus?: string;
+    orderId?:     string;
+    transactions?: Array<{ uuid?: string; status?: string }>;
+  };
+  try {
+    clientAnswer = JSON.parse(Buffer.from(body.rawClientAnswer, 'base64').toString('utf-8'));
+  } catch {
+    return NextResponse.json({ ok: false, error: 'Respuesta de pago inválida' }, { status: 400 });
   }
 
-  const { payment } = result;
-
-  if (payment.status !== 'approved') {
-    const isPending = payment.status === 'pending' || payment.status === 'in_process';
-    const msg = isPending
-      ? 'Tu pago está siendo procesado. Recibirás un correo de confirmación en breve.'
-      : `Pago rechazado: ${payment.status_detail ?? payment.status}`;
-    return NextResponse.json({ ok: false, pending: isPending, error: msg });
+  if (clientAnswer.orderStatus !== 'PAID') {
+    const status = clientAnswer.orderStatus ?? 'desconocido';
+    return NextResponse.json({ ok: false, error: `Pago no aprobado (${status}). Intenta de nuevo.` });
   }
 
-  const orderId = `FCP-${payment.id}`;
+  // ── 3. Generate ticket token & send email ────────────────────
+  const orderId = body.orderId
+    ?? clientAnswer.orderId
+    ?? `FCP-${clientAnswer.transactions?.[0]?.uuid ?? Date.now()}`;
 
-  // Generate HMAC-signed ticket token
   let ticketToken: string | undefined;
   try {
     if (body.purchaseDetails && body.buyerInfo) {
@@ -83,7 +70,7 @@ export async function POST(req: NextRequest) {
         purchaseDetails: body.purchaseDetails,
         orderId,
         ticketToken,
-        amount,
+        amount: body.amount,
       }).catch(e => console.error('Error sending confirmation email:', e));
     }
   } catch (e) {

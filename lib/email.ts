@@ -58,7 +58,7 @@ export function buildEmailHtml(p: ConfirmationEmailParams): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <meta name="color-scheme" content="dark">
-  <title>Tu entrada · Festival Cubanada 2026</title>
+  <title>Tu entrada · Festival de Salsa y Timba 2026</title>
 </head>
 <body bgcolor="${B}" style="margin:0;padding:0;background-color:${B};">
 
@@ -87,7 +87,7 @@ export function buildEmailHtml(p: ConfirmationEmailParams): string {
                       letter-spacing:6px;line-height:1;
                       font-family:'Arial Black',Arial,sans-serif;
                       text-transform:uppercase;">
-              FESTIVAL CUBANADA
+              FESTIVAL DE SALSA Y TIMBA
             </p>
             <p style="margin:4px 0 0;color:${B};font-size:11px;font-weight:700;
                       letter-spacing:4px;text-transform:uppercase;
@@ -237,7 +237,7 @@ export function buildEmailHtml(p: ConfirmationEmailParams): string {
           <td align="center" bgcolor="${B}"
               style="background-color:${B};padding:14px 20px;">
             <p style="margin:0 0 3px;color:#555555;font-size:11px;font-family:Arial,sans-serif;">
-              Perion Entertainment · Festival Cubanada · Chancay 2026
+              Perion Entertainment · Festival de Salsa y Timba · Chancay 2026
             </p>
             <p style="margin:0;color:#444444;font-size:10px;font-family:Arial,sans-serif;">
               Enviado a ${esc(p.buyerInfo.email)} · Entrada no reembolsable
@@ -257,7 +257,7 @@ export function buildEmailHtml(p: ConfirmationEmailParams): string {
 // ── Send ─────────────────────────────────────────────────────
 export async function sendConfirmationEmail(params: ConfirmationEmailParams): Promise<void> {
   const zone    = ZONE_LABEL[params.purchaseDetails.zone] ?? params.purchaseDetails.zone.toUpperCase();
-  const subject = `Tu entrada · Festival Cubanada ${zone} · Chancay 2026`;
+  const subject = `Tu entrada · Festival de Salsa y Timba ${zone} · Chancay 2026`;
   const html    = buildEmailHtml(params);
 
   if (GMAIL_USER && GMAIL_PASS) {
@@ -267,7 +267,7 @@ export async function sendConfirmationEmail(params: ConfirmationEmailParams): Pr
       auth: { user: GMAIL_USER, pass: GMAIL_PASS },
     });
     const info = await transporter.sendMail({
-      from: `"Festival Cubanada" <${GMAIL_USER}>`,
+      from: `"Festival de Salsa y Timba" <${GMAIL_USER}>`,
       to:   params.buyerInfo.email,
       subject,
       html,
@@ -281,7 +281,7 @@ export async function sendConfirmationEmail(params: ConfirmationEmailParams): Pr
       method: 'POST',
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: `Festival Cubanada <${FROM_ADDRESS}>`,
+        from: `Festival de Salsa y Timba <${FROM_ADDRESS}>`,
         to:   [params.buyerInfo.email],
         subject,
         html,

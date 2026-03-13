@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import CheckoutPanel from './CheckoutPanel';
 import {
   getBoxSVGPos,
@@ -774,6 +775,7 @@ export default function MapSection() {
   const [showModal,   setShowModal]   = useState(false);
   const [modalLabel,  setModalLabel]  = useState('');
   const panelRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   const load = useCallback(async () => {
     try {
@@ -934,7 +936,7 @@ export default function MapSection() {
     setBuyerData(null);
     setPurchaseCtx(null);
     setTicketToken(null);
-    load();
+    router.push('/');
   };
 
   return (

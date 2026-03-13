@@ -57,7 +57,7 @@ export default async function EntradaPage({
                        fontWeight: 900, letterSpacing: '4px',
                        fontFamily: '"Arial Black", Arial, sans-serif',
                        textTransform: 'uppercase' }}>
-            FESTIVAL CUBANADA
+            FESTIVAL DE SALSA Y TIMBA
           </h1>
           <p style={{ margin: '4px 0 0', color: '#888', fontSize: '11px',
                       letterSpacing: '2px', fontFamily: 'Arial, sans-serif' }}>
