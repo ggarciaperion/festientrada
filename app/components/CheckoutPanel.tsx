@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { initMercadoPago, CardPayment } from '@mercadopago/sdk-react';
 
 // ── Icons ────────────────────────────────────────────────────
@@ -74,6 +74,16 @@ export default function CheckoutPanel({
     const t = setTimeout(() => setReady(true), 150);
     return () => clearTimeout(t);
   }, []);
+
+  // Stable reference — prevents Brick from reinitializing on parent re-renders
+  const brickInit = useMemo(() => ({
+    amount,
+    payer: {
+      email:          buyerInfo.email,
+      identification: { type: 'DNI', number: buyerInfo.dni },
+    },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), []);
 
   const handleSubmit = async (formData: {
     token?:             string;
@@ -161,13 +171,7 @@ export default function CheckoutPanel({
       {/* MercadoPago Card Payment Brick */}
       {ready && (
         <CardPayment
-          initialization={{
-            amount,
-            payer: {
-              email:          buyerInfo.email,
-              identification: { type: 'DNI', number: buyerInfo.dni },
-            },
-          }}
+          initialization={brickInit}
           customization={{
             paymentMethods: { maxInstallments: 1 },
           }}

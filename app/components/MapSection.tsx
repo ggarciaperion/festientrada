@@ -668,9 +668,11 @@ export default function MapSection() {
 
   useEffect(() => { setMounted(true); load(); }, [load]);
   useEffect(() => {
+    // Pause polling during checkout — re-renders would reset the payment Brick
+    if (view === 'checkout') return;
     const id = setInterval(load, 5000);
     return () => clearInterval(id);
-  }, [load]);
+  }, [load, view]);
 
   // Timer tick for box_reserved
   useEffect(() => {
