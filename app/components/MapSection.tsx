@@ -646,6 +646,65 @@ function PurchasePanel({
   return null;
 }
 
+// ── SuccessModal ──────────────────────────────────────────────
+function SuccessModal({ label, onClose }: { label: string; onClose: () => void }) {
+  return (
+    <>
+      <style>{`
+        @keyframes modalIn {
+          from { opacity: 0; transform: scale(0.88) translateY(12px); }
+          to   { opacity: 1; transform: scale(1)    translateY(0);    }
+        }
+        .modal-in { animation: modalIn 0.28s cubic-bezier(0.34,1.56,0.64,1) both; }
+      `}</style>
+
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-5"
+        style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(6px)' }}
+        onClick={onClose}
+      >
+        {/* Card — stopPropagation so clicking card doesn't close */}
+        <div
+          className="modal-in relative bg-[#0d1117] border border-emerald-500/40 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Big animated check */}
+          <div className="w-20 h-20 rounded-full bg-emerald-500/15 border-2 border-emerald-500/40 flex items-center justify-center mx-auto mb-5">
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none"
+              stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </div>
+
+          <h2 className="font-heading font-black text-white text-2xl mb-1">¡Pago confirmado!</h2>
+          <p className="text-emerald-400 text-sm font-semibold mb-1">{label}</p>
+          <p className="text-slate-500 text-xs mb-5">Festival Cubanada Perion · 29 Mar 2026</p>
+
+          {/* Email notice */}
+          <div className="bg-emerald-500/8 border border-emerald-500/25 rounded-xl p-4 mb-6 text-left">
+            <p className="text-emerald-400 font-bold text-xs uppercase tracking-wider mb-1.5">
+              📧 Revisa tu correo
+            </p>
+            <p className="text-slate-400 text-xs leading-relaxed">
+              Te enviamos un correo con tu{' '}
+              <strong className="text-white">código QR de acceso</strong>.
+              Preséntalo en la puerta del evento para recoger tu pulsera.
+            </p>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="btn-primary w-full justify-center py-3.5 text-sm"
+          >
+            Ver mapa actualizado →
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── MapSection — main export ─────────────────────────────────
 export default function MapSection() {
   const [boxes,       setBoxes]       = useState<Box[]>([]);
@@ -656,6 +715,8 @@ export default function MapSection() {
   const [buyerData,   setBuyerData]   = useState<FormData | null>(null);
   const [purchaseCtx, setPurchaseCtx] = useState<PurchaseCtx | null>(null);
   const [ticketToken, setTicketToken] = useState<string | null>(null);
+  const [showModal,   setShowModal]   = useState(false);
+  const [modalLabel,  setModalLabel]  = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -729,6 +790,13 @@ export default function MapSection() {
 
   // Called by CheckoutPanel on successful payment
   const handlePaymentSuccess = async (orderId: string, token: string) => {
+    // Build modal label before we clear state
+    const label = purchaseCtx?.type === 'box' && selectedBox
+      ? `Box ${selectedBox.id} · ${ZONE_COLORS[selectedBox.zone].label}`
+      : purchaseCtx?.type === 'individual' && purchaseCtx.zone
+        ? `${purchaseCtx.entries} entrada(s) · ${purchaseCtx.zone === 'general' ? 'General' : ZONE_COLORS[purchaseCtx.zone as BoxZone].label}`
+        : 'Entradas confirmadas';
+
     if (purchaseCtx?.type === 'box' && selectedBox && buyerData) {
       const sessionId = getSessionId();
       await fetch('/api/boxes/confirm', {
@@ -751,8 +819,11 @@ export default function MapSection() {
       });
       clearReservation();
     }
+
     setTicketToken(token || null);
-    setView('success');
+    setModalLabel(label);
+    setShowModal(true);
+    setView('idle');
     load();
   };
 
@@ -789,8 +860,19 @@ export default function MapSection() {
     return 'Festival Cubanada Perion';
   })();
 
+  const handleModalClose = () => {
+    setShowModal(false);
+    setSelectedBox(null);
+    setBuyerData(null);
+    setPurchaseCtx(null);
+    setTicketToken(null);
+    load();
+  };
+
   return (
     <>
+      {showModal && <SuccessModal label={modalLabel} onClose={handleModalClose} />}
+
       <div className="grid lg:grid-cols-3 gap-6 lg:gap-8 items-start">
 
         {/* ── Map column ── */}
