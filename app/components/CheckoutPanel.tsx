@@ -61,7 +61,6 @@ export default function CheckoutPanel({
 
   useEffect(() => {
     mountRef.current = true;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let KR: any = null;
 
     (async () => {
