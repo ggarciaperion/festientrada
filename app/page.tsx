@@ -231,9 +231,22 @@ export default function Home() {
 
       {/* ── Hero ───────────────────────────────────────────── */}
       <section className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
+
+        {/* Background image */}
+        <img
+          src="/baile.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover object-center opacity-30"
+        />
+
+        {/* Dark overlay for text readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#09090F]/60 via-[#09090F]/40 to-[#09090F]/80" />
+
         <div className="hero-glow" />
 
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center z-10 py-10 sm:py-24">
+        {/* Content */}
+        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 text-center z-10 py-10 sm:py-24">
 
           {/* Label */}
           <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-full px-4 py-1.5 mb-3 sm:mb-8">
@@ -244,7 +257,7 @@ export default function Home() {
           </div>
 
           {/* Title */}
-          <h1 className="font-heading font-black leading-[0.92] tracking-tight text-white mb-3 sm:mb-6"
+          <h1 className="font-heading font-black leading-[0.92] tracking-tight text-white mb-3 sm:mb-6 drop-shadow-2xl"
               style={{ fontSize: 'clamp(2.75rem, 10vw, 6rem)' }}>
             FESTIVAL<br />
             <span className="text-amber-400">DE SALSA</span><br />
@@ -252,7 +265,7 @@ export default function Home() {
           </h1>
 
           {/* Subtitle */}
-          <p className="text-slate-400 text-base sm:text-xl max-w-xl mx-auto mb-3 sm:mb-8">
+          <p className="text-slate-300 text-base sm:text-xl max-w-xl mx-auto mb-3 sm:mb-8 drop-shadow">
             El primer festival de salsa y timba en el Malecón del Puerto de Chancay.
             Un atardecer de ritmo, sabor y baile frente al mar.
           </p>
