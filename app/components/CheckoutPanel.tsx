@@ -1,38 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-
-// ── Izipay KRGlue/KR global types ────────────────────────────
-// KRGlue is injected by the Izipay JS script loaded dynamically.
-declare global {
-  interface Window {
-    KRGlue?: {
-      loadLibrary: (
-        baseUrl:   string,
-        publicKey: string,
-      ) => Promise<{ KR: IzipayKR }>;
-    };
-  }
-}
-
-interface IzipayKR {
-  setFormConfig: (cfg: Record<string, unknown>) => Promise<{ KR: IzipayKR }>;
-  attachForm:    (selector: string)             => Promise<{ KR: IzipayKR }>;
-  onSubmit:      (cb: (res: IzipaySubmitResponse) => Promise<boolean>) => Promise<{ KR: IzipayKR }>;
-  onError:       (cb: (err: IzipayKRError)       => void)             => Promise<{ KR: IzipayKR }>;
-}
-
-interface IzipaySubmitResponse {
-  clientAnswer:    Record<string, unknown>;
-  rawClientAnswer: string;
-  hash:            string;
-  hashAlgorithm:   string;
-}
-
-interface IzipayKRError {
-  errorCode:    string;
-  errorMessage: string;
-}
+import { initMercadoPago, CardPayment } from '@mercadopago/sdk-react';
 
 // ── Icons ────────────────────────────────────────────────────
 function IconSpin() {
@@ -58,36 +27,21 @@ function IconLock() {
   );
 }
 
-// ── Helpers ───────────────────────────────────────────────────
-function splitName(fullName: string): { firstName: string; lastName: string } {
-  const parts = fullName.trim().split(/\s+/);
-  return {
-    firstName: parts[0] ?? fullName,
-    lastName:  parts.slice(1).join(' ') || '-',
-  };
-}
-
-// Dynamically loads a script tag (idempotent — won't add duplicates)
-function loadIzipayScript(baseUrl: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const src = `${baseUrl}/payments/v1/js/index.js`;
-    if (document.querySelector(`script[src="${src}"]`)) {
-      resolve();
-      return;
-    }
-    const script = document.createElement('script');
-    script.src   = src;
-    script.async = true;
-    script.onload  = () => resolve();
-    script.onerror = () => reject(new Error('No se pudo cargar el formulario de pago de Izipay'));
-    document.head.appendChild(script);
-  });
+// ── MP initialization (module-level, runs once) ───────────────
+let mpInitialized = false;
+function ensureMP() {
+  if (mpInitialized) return;
+  const key = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY;
+  if (key) {
+    initMercadoPago(key, { locale: 'es-PE' });
+    mpInitialized = true;
+  }
 }
 
 // ── Props ────────────────────────────────────────────────────
 export interface PurchaseDetails {
   type: 'box' | 'individual';
-  zone: string;  // 'platinum' | 'vip' | 'malecon' | 'general'
+  zone: string;
   qty:  number;
 }
 
@@ -109,117 +63,80 @@ export default function CheckoutPanel({
   onSuccess,
   onCancel,
 }: CheckoutPanelProps) {
-  type State = 'loading' | 'ready' | 'processing' | 'error';
-  const [state,      setState]      = useState<State>('loading');
-  const [error,      setError]      = useState('');
-  const formId = useRef(`izipay-${Math.random().toString(36).slice(2, 7)}`);
+  const [ready,   setReady]   = useState(false);
+  const [error,   setError]   = useState('');
+  const onSuccessRef           = useRef(onSuccess);
+  onSuccessRef.current         = onSuccess;
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function init() {
-      try {
-        // ── Step 1: Create Izipay payment session (server) ──
-        const { firstName, lastName } = splitName(buyerInfo.name);
-
-        const sessionRes = await fetch('/api/payment/create-session', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount,
-            email:     buyerInfo.email,
-            firstName,
-            lastName,
-            phone:     buyerInfo.phone,
-            dni:       buyerInfo.dni,
-            description,
-          }),
-        });
-
-        const sessionData = await sessionRes.json() as
-          | { ok: true;  session: { formToken: string; publicKey: string; baseUrl: string } }
-          | { ok: false; error: string };
-
-        if (!sessionData.ok) {
-          setError(sessionData.error);
-          setState('error');
-          return;
-        }
-        if (cancelled) return;
-
-        const { formToken, publicKey, baseUrl } = sessionData.session;
-
-        // ── Step 2: Load Izipay JS SDK ───────────────────────
-        await loadIzipayScript(baseUrl);
-        if (cancelled) return;
-
-        if (!window.KRGlue) {
-          throw new Error('El SDK de Izipay no se cargó correctamente');
-        }
-
-        // ── Step 3: Initialize KR and attach form ────────────
-        const { KR: kr1 } = await window.KRGlue.loadLibrary(baseUrl, publicKey);
-        const { KR: kr2 } = await kr1.setFormConfig({ formToken, language: 'es-PE' });
-        const { KR: kr3 } = await kr2.attachForm(`#${formId.current}`);
-        if (cancelled) return;
-
-        setState('ready');
-
-        // ── Step 4: Listen for errors ────────────────────────
-        await kr3.onError((err) => {
-          setError(err.errorMessage || 'Error en el formulario de pago');
-          setState('ready');
-        });
-
-        // ── Step 5: Handle payment submission ────────────────
-        await kr3.onSubmit(async (response) => {
-          setState('processing');
-          setError('');
-
-          const validateRes = await fetch('/api/payment/validate', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              clientAnswer:    response.clientAnswer,
-              rawClientAnswer: response.rawClientAnswer,
-              hash:            response.hash,
-              purchaseDetails,
-              buyerInfo,
-            }),
-          });
-
-          const validation = await validateRes.json() as
-            { ok: boolean; orderId?: string; ticketToken?: string; error?: string };
-
-          if (validation.ok && validation.orderId) {
-            onSuccess(validation.orderId, validation.ticketToken ?? '');
-          } else {
-            setError(validation.error ?? 'El pago no se pudo confirmar. Intenta de nuevo.');
-            setState('ready');
-          }
-
-          return false; // Prevent Izipay's default page redirect
-        });
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Error al inicializar el formulario de pago');
-          setState('error');
-        }
-      }
-    }
-
-    init();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    ensureMP();
+    // Small delay so MP SDK fully loads before rendering the Brick
+    const t = setTimeout(() => setReady(true), 150);
+    return () => clearTimeout(t);
   }, []);
+
+  const handleSubmit = async (formData: {
+    token?:             string;
+    payment_method_id?: string;
+    issuer_id?:         string | number;
+    installments?:      number;
+    transaction_amount?: number;
+    payer?:             { email?: string; identification?: { type: string; number: string } };
+  }) => {
+    setError('');
+    try {
+      const res = await fetch('/api/payment/process', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token:              formData.token,
+          payment_method_id:  formData.payment_method_id,
+          issuer_id:          formData.issuer_id,
+          installments:       formData.installments ?? 1,
+          transaction_amount: formData.transaction_amount ?? amount,
+          payer:              formData.payer,
+          // Our controlled fields:
+          amount,
+          email:           buyerInfo.email,
+          buyerInfo,
+          purchaseDetails,
+        }),
+      });
+
+      const data = await res.json() as {
+        ok:          boolean;
+        orderId?:    string;
+        ticketToken?: string;
+        error?:      string;
+        pending?:    boolean;
+      };
+
+      if (!data.ok) {
+        const msg = data.error ?? 'Error al procesar el pago. Intenta de nuevo.';
+        setError(msg);
+        throw new Error(msg);
+      }
+
+      onSuccessRef.current(data.orderId ?? '', data.ticketToken ?? '');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error al procesar el pago';
+      setError(msg);
+      throw e; // Let the Brick re-enable its submit button
+    }
+  };
+
+  const handleBrickError = (err: { message?: string; type?: string }) => {
+    // Brick-level errors (invalid card format, etc.) — no need to setError,
+    // the Brick shows inline validation messages itself
+    console.error('MP Brick error:', err);
+  };
 
   return (
     <div>
       {/* Back button */}
       <button
         onClick={onCancel}
-        disabled={state === 'processing'}
-        className="flex items-center gap-1 text-slate-500 hover:text-slate-300 text-xs mb-4 transition disabled:opacity-40"
+        className="flex items-center gap-1 text-slate-500 hover:text-slate-300 text-xs mb-4 transition"
       >
         <IconBack /> Volver
       </button>
@@ -234,50 +151,42 @@ export default function CheckoutPanel({
       </div>
 
       {/* Loading skeleton */}
-      {state === 'loading' && (
+      {!ready && (
         <div className="flex flex-col items-center justify-center py-10 gap-3">
           <IconSpin />
           <p className="text-xs text-slate-500">Cargando formulario de pago seguro...</p>
         </div>
       )}
 
-      {/* Error state (fatal — can't load form) */}
-      {state === 'error' && (
-        <div className="rounded-xl border border-rose-500/20 bg-rose-500/8 p-4 text-center">
-          <p className="text-sm text-rose-400 mb-3">{error || 'No se pudo cargar el formulario de pago'}</p>
-          <button onClick={onCancel} className="btn-secondary text-sm py-2 px-4">
-            Volver e intentar de nuevo
-          </button>
-        </div>
+      {/* MercadoPago Card Payment Brick */}
+      {ready && (
+        <CardPayment
+          initialization={{
+            amount,
+            payer: {
+              email:          buyerInfo.email,
+              identification: { type: 'DNI', number: buyerInfo.dni },
+            },
+          }}
+          customization={{
+            paymentMethods: { maxInstallments: 1 },
+          }}
+          onSubmit={handleSubmit}
+          onError={handleBrickError}
+        />
       )}
 
-      {/* Izipay embedded form — Izipay renders cards, Yape, Plin here */}
-      <div
-        id={formId.current}
-        className={state === 'loading' || state === 'error' ? 'hidden' : ''}
-      />
-
-      {/* Processing overlay */}
-      {state === 'processing' && (
-        <div className="flex flex-col items-center gap-3 py-4">
-          <IconSpin />
-          <p className="text-sm text-slate-400">Confirmando tu pago...</p>
-        </div>
-      )}
-
-      {/* Inline error (payment declined, etc.) */}
-      {error && state === 'ready' && (
+      {/* Error from payment processing */}
+      {error && (
         <p className="mt-3 text-[12px] text-rose-400 bg-rose-500/8 border border-rose-500/20 rounded-lg px-3 py-2">
           {error}
         </p>
       )}
 
       {/* Security badge */}
-      {(state === 'ready' || state === 'loading') && (
-        <p className="text-center text-[10px] text-slate-700 mt-4 flex items-center justify-center gap-1">
-          <IconLock /> Pago 100% seguro · Tarjeta · Yape · Plin · Procesado por Izipay
-        </p>
-      )}
+      <p className="text-center text-[10px] text-slate-700 mt-4 flex items-center justify-center gap-1">
+        <IconLock /> Pago 100% seguro · Tarjeta débito/crédito · Procesado por MercadoPago
+      </p>
     </div>
   );
 }
