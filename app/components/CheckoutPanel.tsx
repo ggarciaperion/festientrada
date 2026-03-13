@@ -156,7 +156,7 @@ export default function CheckoutPanel({
         <p className="font-heading font-black text-2xl text-amber-400">S/ {amount}</p>
       </div>
 
-      {/* Loading state */}
+      {/* Loading overlay — spinner mientras Izipay inicializa */}
       {loading && (
         <div className="flex flex-col items-center justify-center py-10 gap-3">
           <IconSpin />
@@ -164,8 +164,8 @@ export default function CheckoutPanel({
         </div>
       )}
 
-      {/* Izipay embedded form — los divs internos fuerzan el formulario de tarjeta directo */}
-      <div style={{ display: loading ? 'none' : 'block' }}>
+      {/* Izipay embedded form — SIEMPRE en el DOM para que KR pueda encontrarlo e inyectar los campos */}
+      <div style={{ visibility: loading ? 'hidden' : 'visible', height: loading ? 0 : 'auto', overflow: loading ? 'hidden' : 'visible' }}>
         <div className="kr-embedded">
           <div className="kr-pan" />
           <div className="kr-expiry" />
