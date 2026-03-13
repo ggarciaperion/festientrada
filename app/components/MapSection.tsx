@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import CheckoutPanel from './CheckoutPanel';
 import {
   getBoxSVGPos,
@@ -502,7 +502,7 @@ function PurchasePanel({
         {/* Timer */}
         <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2 text-amber-400 text-sm font-semibold">
-            <IconTimer /> Box bloqueado para ti
+            <IconTimer /> Box reservado para ti
           </div>
           <span className="font-heading font-black text-amber-400 text-xl tabular-nums">{fmtMs(timeLeft)}</span>
         </div>
@@ -773,6 +773,7 @@ export default function MapSection() {
   const [ticketToken, setTicketToken] = useState<string | null>(null);
   const [showModal,   setShowModal]   = useState(false);
   const [modalLabel,  setModalLabel]  = useState('');
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -790,6 +791,17 @@ export default function MapSection() {
     const id = setInterval(load, 5000);
     return () => clearInterval(id);
   }, [load, view]);
+
+  // Scroll the right panel into view when box gets reserved (fixes mobile scroll-to-FAQ)
+  useEffect(() => {
+    if (view === 'box_reserved') {
+      // Small delay so the DOM has rendered the new panel content
+      const t = setTimeout(() => {
+        panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 80);
+      return () => clearTimeout(t);
+    }
+  }, [view]);
 
   // Timer tick for box_reserved
   useEffect(() => {
@@ -1011,7 +1023,7 @@ export default function MapSection() {
         </div>
 
         {/* ── Right panel ── */}
-        <div className="card p-5">
+        <div className="card p-5" ref={panelRef}>
           <PurchasePanel
             view={view}
             selectedBox={selectedBox}
