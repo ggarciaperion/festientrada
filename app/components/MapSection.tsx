@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import CheckoutPanel from './CheckoutPanel';
 import {
   getBoxSVGPos,
@@ -180,10 +180,10 @@ type FormErrors = Partial<FormData>;
 
 function validateForm(f: FormData): FormErrors {
   const e: FormErrors = {};
-  if (!f.name.trim())  e.name  = 'Requerido';
+  if (!f.name.trim()) e.name = 'Requerido';
   if (!f.email.trim() || !/\S+@\S+\.\S+/.test(f.email)) e.email = 'Correo inválido';
-  if (!f.phone.trim()) e.phone = 'Requerido';
-  if (!f.dni.trim() || f.dni.length !== 8) e.dni = 'Debe tener 8 dígitos';
+  if (!/^\d{9}$/.test(f.phone)) e.phone = 'Debe tener exactamente 9 dígitos';
+  if (!f.dni.trim() || f.dni.length < 8) e.dni = 'Debe tener 8 o 9 dígitos';
   return e;
 }
 
@@ -193,22 +193,26 @@ function FormFields({
   data: FormData; errors: FormErrors; onChange: (f: FormData) => void;
 }) {
   const fields = [
-    { id: 'name',  label: 'Nombre completo',    type: 'text',  ph: 'Juan Pérez García' },
-    { id: 'dni',   label: 'DNI',                type: 'text',  ph: '12345678' },
-    { id: 'email', label: 'Correo electrónico', type: 'email', ph: 'tu@email.com' },
-    { id: 'phone', label: 'Teléfono',           type: 'tel',   ph: '+51 999 999 999' },
+    { id: 'name',  label: 'Nombre completo',    type: 'text',  ph: 'Juan Pérez García',  numeric: false },
+    { id: 'dni',   label: 'DNI',                type: 'text',  ph: '12345678',           numeric: true  },
+    { id: 'email', label: 'Correo electrónico', type: 'email', ph: 'tu@email.com',       numeric: false },
+    { id: 'phone', label: 'Teléfono',           type: 'tel',   ph: '999999999',          numeric: true  },
   ] as const;
   return (
     <div className="space-y-3">
-      {fields.map(({ id, label, type, ph }) => (
+      {fields.map(({ id, label, type, ph, numeric }) => (
         <div key={id}>
           <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">{label}</label>
           <input
             type={type}
+            inputMode={numeric ? 'numeric' : undefined}
             value={data[id]}
             placeholder={ph}
+            required
             onChange={e => {
-              const v = id === 'dni' ? e.target.value.replace(/\D/g, '').slice(0, 8) : e.target.value;
+              let v = e.target.value;
+              if (id === 'phone') v = v.replace(/\D/g, '').slice(0, 9);
+              if (id === 'dni')   v = v.replace(/\D/g, '').slice(0, 9);
               onChange({ ...data, [id]: v });
             }}
             className={`form-input text-sm py-3 ${errors[id] ? 'form-input-error' : ''}`}
@@ -646,6 +650,58 @@ function PurchasePanel({
   return null;
 }
 
+// ── CheckoutModal ─────────────────────────────────────────────
+function CheckoutModal({ children, onCancel }: { children: React.ReactNode; onCancel: () => void }) {
+  // Lock body scroll while modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
+  return (
+    <>
+      <style>{`
+        @keyframes sheetIn {
+          from { opacity: 0; transform: translateY(40px); }
+          to   { opacity: 1; transform: translateY(0);    }
+        }
+        .sheet-in { animation: sheetIn 0.25s ease-out both; }
+      `}</style>
+
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+        style={{ background: 'rgba(0,0,0,0.90)', backdropFilter: 'blur(6px)' }}
+        onClick={onCancel}
+      >
+        {/* Sheet */}
+        <div
+          className="sheet-in w-full sm:max-w-md bg-[#0d1117] border border-white/10
+                     rounded-t-2xl sm:rounded-2xl overflow-hidden"
+          style={{ maxHeight: '92dvh' }}
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/8">
+            <p className="text-white font-bold text-sm tracking-wide">Pagar con tarjeta</p>
+            <button
+              onClick={onCancel}
+              className="text-slate-500 hover:text-white transition text-lg leading-none"
+              aria-label="Cerrar"
+            >
+              ✕
+            </button>
+          </div>
+          {/* Scrollable content */}
+          <div className="overflow-y-auto p-5" style={{ maxHeight: 'calc(92dvh - 56px)' }}>
+            {children}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── SuccessModal ──────────────────────────────────────────────
 function SuccessModal({ label, onClose }: { label: string; onClose: () => void }) {
   return (
@@ -697,7 +753,7 @@ function SuccessModal({ label, onClose }: { label: string; onClose: () => void }
             onClick={onClose}
             className="btn-primary w-full justify-center py-3.5 text-sm"
           >
-            Ver mapa actualizado →
+            ACEPTAR
           </button>
         </div>
       </div>
@@ -873,6 +929,39 @@ export default function MapSection() {
     <>
       {showModal && <SuccessModal label={modalLabel} onClose={handleModalClose} />}
 
+      {/* ── Checkout modal (emerges over the map on all devices) ── */}
+      {view === 'checkout' && purchaseCtx && buyerData && (
+        <CheckoutModal onCancel={handleReset}>
+          {process.env.NEXT_PUBLIC_SIMULATE_PAYMENT === 'true' ? (
+            <SimulateCheckout
+              amount={purchaseCtx.price}
+              description={checkoutDescription}
+              buyerInfo={buyerData}
+              purchaseDetails={
+                purchaseCtx.type === 'box'
+                  ? { type: 'box', zone: selectedBox?.zone ?? 'platinum', qty: 10 }
+                  : { type: 'individual', zone: purchaseCtx.zone, qty: purchaseCtx.entries }
+              }
+              onSuccess={handlePaymentSuccess}
+              onCancel={handleReset}
+            />
+          ) : (
+            <CheckoutPanel
+              amount={purchaseCtx.price}
+              description={checkoutDescription}
+              buyerInfo={buyerData}
+              purchaseDetails={
+                purchaseCtx.type === 'box'
+                  ? { type: 'box', zone: selectedBox?.zone ?? 'platinum', qty: 10 }
+                  : { type: 'individual', zone: purchaseCtx.zone, qty: purchaseCtx.entries }
+              }
+              onSuccess={handlePaymentSuccess}
+              onCancel={handleReset}
+            />
+          )}
+        </CheckoutModal>
+      )}
+
       <div className="grid lg:grid-cols-3 gap-6 lg:gap-8 items-start">
 
         {/* ── Map column ── */}
@@ -923,47 +1012,17 @@ export default function MapSection() {
 
         {/* ── Right panel ── */}
         <div className="card p-5">
-          {view === 'checkout' && purchaseCtx && buyerData ? (
-            process.env.NEXT_PUBLIC_SIMULATE_PAYMENT === 'true' ? (
-              <SimulateCheckout
-                amount={purchaseCtx.price}
-                description={checkoutDescription}
-                buyerInfo={buyerData}
-                purchaseDetails={
-                  purchaseCtx.type === 'box'
-                    ? { type: 'box', zone: selectedBox?.zone ?? 'platinum', qty: 10 }
-                    : { type: 'individual', zone: purchaseCtx.zone, qty: purchaseCtx.entries }
-                }
-                onSuccess={handlePaymentSuccess}
-                onCancel={handleReset}
-              />
-            ) : (
-              <CheckoutPanel
-                amount={purchaseCtx.price}
-                description={checkoutDescription}
-                buyerInfo={buyerData}
-                purchaseDetails={
-                  purchaseCtx.type === 'box'
-                    ? { type: 'box', zone: selectedBox?.zone ?? 'platinum', qty: 10 }
-                    : { type: 'individual', zone: purchaseCtx.zone, qty: purchaseCtx.entries }
-                }
-                onSuccess={handlePaymentSuccess}
-                onCancel={handleReset}
-              />
-            )
-          ) : (
-            <PurchasePanel
-              view={view}
-              selectedBox={selectedBox}
-              reservedMs={reservedMs}
-              ticketToken={ticketToken}
-              onBoxReserve={handleBoxReserve}
-              onProceedToCheckout={() => setView('checkout')}
-              onIndividualProceed={handleIndividualProceed}
-              onReset={handleReset}
-              onOpenIndividual={() => { setSelectedBox(null); setView('individual_form'); }}
-            />
-          )}
+          <PurchasePanel
+            view={view}
+            selectedBox={selectedBox}
+            reservedMs={reservedMs}
+            ticketToken={ticketToken}
+            onBoxReserve={handleBoxReserve}
+            onProceedToCheckout={() => setView('checkout')}
+            onIndividualProceed={handleIndividualProceed}
+            onReset={handleReset}
+            onOpenIndividual={() => { setSelectedBox(null); setView('individual_form'); }}
+          />
         </div>
       </div>
     </>
