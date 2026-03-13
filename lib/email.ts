@@ -52,7 +52,7 @@ export function buildEmailHtml(p: ConfirmationEmailParams, qrSrc: string): strin
   const pulsLabel  = isGeneral
     ? (pulseras === 1 ? '1 entrada'  : `${pulseras} entradas`)
     : (pulseras === 1 ? '1 pulsera'  : `${pulseras} pulseras`);
-  const validUrl  = `${APP_URL}/validar/${encodeURIComponent(p.ticketToken)}`;
+  const entradaUrl = `${APP_URL}/entrada/${encodeURIComponent(p.ticketToken)}`;
   const order     = p.orderId.slice(-12).toUpperCase();
 
   // helper: one row inside a card
@@ -255,12 +255,12 @@ export function buildEmailHtml(p: ConfirmationEmailParams, qrSrc: string): strin
                   </table>
                   <p style="margin:12px 0 4px;color:${G};font-size:11px;
                             font-family:Arial,sans-serif;">
-                    ¿No carga el QR? Usa este enlace:
+                    ¿No carga el QR? Abre tu entrada aquí:
                   </p>
-                  <a href="${validUrl}"
+                  <a href="${entradaUrl}"
                      style="color:${Y};font-size:11px;
                             word-break:break-all;font-family:Arial,sans-serif;">
-                    ${validUrl}
+                    ${entradaUrl}
                   </a>
                 </td>
               </tr>
