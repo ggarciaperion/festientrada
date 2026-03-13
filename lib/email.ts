@@ -14,7 +14,6 @@ const GMAIL_PASS     = process.env.GMAIL_APP_PASSWORD;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_ADDRESS   = process.env.EMAIL_FROM ?? 'confirmacion@festientrada.com';
 const APP_URL        = process.env.NEXT_PUBLIC_APP_URL ?? 'https://festientrada.com';
-const QR_CID         = 'qrcode@festientrada.com';
 
 // ── Palette ───────────────────────────────────────────────────
 const Y = '#FACC15';  // yellow-400 — unmistakably yellow on any background
@@ -44,52 +43,14 @@ function esc(s: string): string {
 }
 
 // ── Template ──────────────────────────────────────────────────
-export function buildEmailHtml(p: ConfirmationEmailParams, qrSrc: string): string {
-  const zone      = ZONE_LABEL[p.purchaseDetails.zone] ?? p.purchaseDetails.zone.toUpperCase();
-  const isBox      = p.purchaseDetails.type === 'box';
-  const isGeneral  = p.purchaseDetails.zone === 'general';
-  const pulseras   = isBox ? 10 : p.purchaseDetails.qty;
-  const pulsLabel  = isGeneral
+export function buildEmailHtml(p: ConfirmationEmailParams): string {
+  const isBox     = p.purchaseDetails.type === 'box';
+  const isGeneral = p.purchaseDetails.zone === 'general';
+  const pulseras  = isBox ? 10 : p.purchaseDetails.qty;
+  const pulsLabel = isGeneral
     ? (pulseras === 1 ? '1 entrada'  : `${pulseras} entradas`)
     : (pulseras === 1 ? '1 pulsera'  : `${pulseras} pulseras`);
   const entradaUrl = `${APP_URL}/entrada/${encodeURIComponent(p.ticketToken)}`;
-  const order     = p.orderId.slice(-12).toUpperCase();
-
-  // helper: one row inside a card
-  const row = (label: string, value: string) => `
-    <tr>
-      <td width="120" valign="top"
-          style="color:${Y};font-size:11px;font-weight:700;letter-spacing:1px;
-                 text-transform:uppercase;font-family:Arial,sans-serif;
-                 padding:0 8px 10px 0;">
-        ${label}
-      </td>
-      <td style="color:${W};font-size:13px;font-family:Arial,sans-serif;padding-bottom:10px;">
-        ${value}
-      </td>
-    </tr>`;
-
-  // helper: yellow-bordered dark card
-  const card = (title: string, body: string) => `
-  <table width="100%" cellpadding="0" cellspacing="0" border="0"
-         style="margin-bottom:12px;border-collapse:collapse;
-                border:2px solid ${Y};">
-    <tr bgcolor="${Y}" style="background-color:${Y};">
-      <td bgcolor="${Y}"
-          style="background-color:${Y};padding:7px 14px;">
-        <span style="color:${B};font-size:10px;font-weight:900;
-                     letter-spacing:3px;text-transform:uppercase;
-                     font-family:Arial,sans-serif;">${title}</span>
-      </td>
-    </tr>
-    <tr bgcolor="${D}" style="background-color:${D};">
-      <td bgcolor="${D}" style="background-color:${D};padding:14px;">
-        <table width="100%" cellpadding="0" cellspacing="0" border="0">
-          ${body}
-        </table>
-      </td>
-    </tr>
-  </table>`;
 
   return `<!DOCTYPE html>
 <html lang="es" bgcolor="${B}">
@@ -113,7 +74,7 @@ export function buildEmailHtml(p: ConfirmationEmailParams, qrSrc: string): strin
              style="max-width:580px;width:100%;background-color:${B};
                     border-collapse:collapse;border:2px solid ${Y};">
 
-        <!-- ▌▌ YELLOW HEADER — visible on ANY background ▌▌ -->
+        <!-- ▌▌ YELLOW HEADER ▌▌ -->
         <tr bgcolor="${Y}" style="background-color:${Y};">
           <td align="center" bgcolor="${Y}"
               style="background-color:${Y};padding:22px 20px 16px;">
@@ -136,15 +97,12 @@ export function buildEmailHtml(p: ConfirmationEmailParams, qrSrc: string): strin
           </td>
         </tr>
 
-        <!-- ▌▌ BLACK DIVIDER ▌▌ -->
+        <!-- ▌▌ DIVIDER ▌▌ -->
         <tr bgcolor="${B}" style="background-color:${B};">
-          <td bgcolor="${B}"
-              style="background-color:${B};height:3px;font-size:0;line-height:0;">
-            &nbsp;
-          </td>
+          <td bgcolor="${B}" style="background-color:${B};height:3px;font-size:0;line-height:0;">&nbsp;</td>
         </tr>
 
-        <!-- ▌▌ YELLOW CONFIRMATION BAR ▌▌ -->
+        <!-- ▌▌ CONFIRMATION BAR ▌▌ -->
         <tr bgcolor="${Y}" style="background-color:${Y};">
           <td align="center" bgcolor="${Y}"
               style="background-color:${Y};padding:12px 20px;">
@@ -156,13 +114,12 @@ export function buildEmailHtml(p: ConfirmationEmailParams, qrSrc: string): strin
           </td>
         </tr>
 
-        <!-- ▌▌ BODY — black background, yellow borders ▌▌ -->
+        <!-- ▌▌ BODY ▌▌ -->
         <tr bgcolor="${B}" style="background-color:${B};">
-          <td bgcolor="${B}"
-              style="background-color:${B};padding:20px;">
+          <td bgcolor="${B}" style="background-color:${B};padding:24px 20px;">
 
             <!-- Greeting -->
-            <p style="margin:0 0 14px;color:${G};font-size:14px;
+            <p style="margin:0 0 20px;color:${G};font-size:14px;
                       line-height:1.7;font-family:Arial,sans-serif;">
               Hola <strong style="color:${W};">${esc(p.buyerInfo.name)}</strong>,
               tu compra fue procesada exitosamente. Presenta el QR
@@ -174,7 +131,7 @@ export function buildEmailHtml(p: ConfirmationEmailParams, qrSrc: string): strin
 
             <!-- Security notice -->
             <table width="100%" cellpadding="0" cellspacing="0" border="0"
-                   style="margin-bottom:18px;border-collapse:collapse;border:2px solid ${Y};">
+                   style="margin-bottom:20px;border-collapse:collapse;border:2px solid ${Y};">
               <tr bgcolor="${Y}" style="background-color:${Y};">
                 <td bgcolor="${Y}" style="background-color:${Y};padding:7px 14px;">
                   <span style="color:${B};font-size:10px;font-weight:900;
@@ -196,71 +153,19 @@ export function buildEmailHtml(p: ConfirmationEmailParams, qrSrc: string): strin
               </tr>
             </table>
 
-            ${card('Detalles del Evento', `
-              ${row('Evento',  'Primer Festival de Salsa y Timba')}
-              ${row('Fecha',   'Domingo 29 de Marzo, 2026')}
-              ${row('Hora',    '4:00 pm')}
-              ${row('Lugar',   'Malecón del Puerto de Chancay, Lima')}
-            `)}
-
-            ${card('Tu Entrada', `
-              ${row('Zona',     `<strong style="color:${Y};">${zone}</strong>`)}
-              ${row('Tipo',     isBox ? 'Box completo (10 personas)' : 'Entrada individual')}
-              ${row(isGeneral ? 'Entradas' : 'Pulseras', `<strong style="color:${Y};">${pulsLabel}</strong>`)}
-              ${row('Total',    `<strong style="color:${Y};">S/ ${p.amount.toFixed(2)}</strong>`)}
-              ${row('Orden',    `<span style="font-family:monospace;color:${G};font-size:11px;">${order}</span>`)}
-            `)}
-
-            ${card('Comprador', `
-              ${row('Nombre', esc(p.buyerInfo.name))}
-              ${row('DNI',    esc(p.buyerInfo.dni))}
-              ${row('Email',  esc(p.buyerInfo.email))}
-              ${row('Cel.',   esc(p.buyerInfo.phone))}
-            `)}
-
-            <!-- ── QR ────────────────────────────────── -->
+            <!-- ── CTA BUTTON ─────────────────────────── -->
             <table width="100%" cellpadding="0" cellspacing="0" border="0"
-                   style="margin-bottom:12px;border-collapse:collapse;
-                          border:2px solid ${Y};">
-              <!-- QR header -->
-              <tr bgcolor="${Y}" style="background-color:${Y};">
-                <td align="center" bgcolor="${Y}"
-                    style="background-color:${Y};padding:7px 14px;">
-                  <span style="color:${B};font-size:10px;font-weight:900;
-                               letter-spacing:3px;text-transform:uppercase;
-                               font-family:Arial,sans-serif;">
-                    ★ &nbsp; CÓDIGO QR DE ACCESO &nbsp; ★
-                  </span>
-                </td>
-              </tr>
-              <!-- QR body -->
-              <tr bgcolor="${D}" style="background-color:${D};">
-                <td align="center" bgcolor="${D}"
-                    style="background-color:${D};padding:20px;">
-                  <p style="margin:0 0 14px;color:${G};font-size:12px;
-                            font-family:Arial,sans-serif;">
-                    Preséntalo en la puerta del evento
-                  </p>
-                  <!-- white QR frame -->
-                  <table cellpadding="0" cellspacing="0" border="0" align="center">
-                    <tr bgcolor="${W}" style="background-color:${W};">
-                      <td bgcolor="${W}"
-                          style="background-color:${W};padding:10px;
-                                 border:3px solid ${Y};">
-                        <img src="${qrSrc}" alt="QR de acceso"
-                             width="200" height="200" border="0"
-                             style="display:block;outline:none;border:0;" />
-                      </td>
-                    </tr>
-                  </table>
-                  <p style="margin:12px 0 4px;color:${G};font-size:11px;
-                            font-family:Arial,sans-serif;">
-                    ¿No carga el QR? Abre tu entrada aquí:
-                  </p>
+                   style="margin-bottom:20px;">
+              <tr>
+                <td align="center">
                   <a href="${entradaUrl}"
-                     style="color:${Y};font-size:11px;
-                            word-break:break-all;font-family:Arial,sans-serif;">
-                    ${entradaUrl}
+                     style="display:inline-block;background-color:${Y};
+                            color:${B};font-size:15px;font-weight:900;
+                            letter-spacing:1px;text-decoration:none;
+                            padding:16px 40px;border-radius:6px;
+                            font-family:'Arial Black',Arial,sans-serif;
+                            text-transform:uppercase;">
+                    Ver mi ticket →
                   </a>
                 </td>
               </tr>
@@ -282,7 +187,7 @@ export function buildEmailHtml(p: ConfirmationEmailParams, qrSrc: string): strin
                 <td bgcolor="${D}" style="background-color:${D};padding:14px;">
 
                   ${[
-                    'Guarda este correo o toma captura de pantalla del QR.',
+                    `Abre tu ticket con el botón de arriba y guárdalo o toma captura de pantalla.`,
                     `Dirígete al <strong style="color:${W};">Malecón del Puerto de Chancay</strong> el día del evento.`,
                     isBox
                       ? `El staff escaneará tu QR y entregará las <strong style="color:${Y};">10 pulseras</strong> de tu box.`
@@ -321,36 +226,26 @@ export function buildEmailHtml(p: ConfirmationEmailParams, qrSrc: string): strin
 
         <!-- ▌▌ YELLOW BOTTOM STRIPE ▌▌ -->
         <tr bgcolor="${B}" style="background-color:${B};">
-          <td bgcolor="${B}"
-              style="background-color:${B};height:3px;font-size:0;line-height:0;">
-            &nbsp;
-          </td>
+          <td bgcolor="${B}" style="background-color:${B};height:3px;font-size:0;line-height:0;">&nbsp;</td>
         </tr>
         <tr bgcolor="${Y}" style="background-color:${Y};">
-          <td bgcolor="${Y}"
-              style="background-color:${Y};height:6px;font-size:0;line-height:0;">
-            &nbsp;
-          </td>
+          <td bgcolor="${Y}" style="background-color:${Y};height:6px;font-size:0;line-height:0;">&nbsp;</td>
         </tr>
 
         <!-- ▌▌ FOOTER ▌▌ -->
         <tr bgcolor="${B}" style="background-color:${B};">
           <td align="center" bgcolor="${B}"
               style="background-color:${B};padding:14px 20px;">
-            <p style="margin:0 0 3px;color:#555555;font-size:11px;
-                      font-family:Arial,sans-serif;">
+            <p style="margin:0 0 3px;color:#555555;font-size:11px;font-family:Arial,sans-serif;">
               Perion Entertainment · Festival Cubanada · Chancay 2026
             </p>
-            <p style="margin:0;color:#444444;font-size:10px;
-                      font-family:Arial,sans-serif;">
+            <p style="margin:0;color:#444444;font-size:10px;font-family:Arial,sans-serif;">
               Enviado a ${esc(p.buyerInfo.email)} · Entrada no reembolsable
             </p>
           </td>
         </tr>
 
       </table>
-      <!-- /CARD -->
-
     </td>
   </tr>
 </table>
@@ -359,51 +254,37 @@ export function buildEmailHtml(p: ConfirmationEmailParams, qrSrc: string): strin
 </html>`;
 }
 
-// ── Generate QR buffer ────────────────────────────────────────
-async function generateQRBuffer(token: string): Promise<Buffer> {
-  const QRCode = (await import('qrcode')).default;
-  const url    = `${APP_URL}/validar/${encodeURIComponent(token)}`;
-  return QRCode.toBuffer(url, { width: 280, margin: 2, errorCorrectionLevel: 'M' });
-}
-
 // ── Send ─────────────────────────────────────────────────────
 export async function sendConfirmationEmail(params: ConfirmationEmailParams): Promise<void> {
   const zone    = ZONE_LABEL[params.purchaseDetails.zone] ?? params.purchaseDetails.zone.toUpperCase();
   const subject = `Tu entrada · Festival Cubanada ${zone} · Chancay 2026`;
+  const html    = buildEmailHtml(params);
 
   if (GMAIL_USER && GMAIL_PASS) {
-    const [nodemailer, qrBuffer] = await Promise.all([
-      import('nodemailer').then(m => m.default),
-      generateQRBuffer(params.ticketToken),
-    ]);
+    const nodemailer = await import('nodemailer').then(m => m.default);
     const transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com', port: 587, secure: false,
       auth: { user: GMAIL_USER, pass: GMAIL_PASS },
     });
     const info = await transporter.sendMail({
-      from:        `"Festival Cubanada" <${GMAIL_USER}>`,
-      to:          params.buyerInfo.email,
+      from: `"Festival Cubanada" <${GMAIL_USER}>`,
+      to:   params.buyerInfo.email,
       subject,
-      html:        buildEmailHtml(params, `cid:${QR_CID}`),
-      attachments: [{
-        filename: 'qr-entrada.png', content: qrBuffer,
-        cid: QR_CID, contentType: 'image/png',
-      }],
+      html,
     });
     console.log('Email enviado:', info.messageId, '→', params.buyerInfo.email);
     return;
   }
 
   if (RESEND_API_KEY) {
-    const qrUrl = `${APP_URL}/api/tickets/qr?token=${encodeURIComponent(params.ticketToken)}`;
-    const res   = await fetch('https://api.resend.com/emails', {
+    const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from:    `Festival Cubanada <${FROM_ADDRESS}>`,
-        to:      [params.buyerInfo.email],
+        from: `Festival Cubanada <${FROM_ADDRESS}>`,
+        to:   [params.buyerInfo.email],
         subject,
-        html:    buildEmailHtml(params, qrUrl),
+        html,
       }),
     });
     if (!res.ok) console.error('Resend error:', res.status, await res.text());

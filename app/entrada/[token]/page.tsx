@@ -145,6 +145,23 @@ export default async function EntradaPage({
           </div>
         </div>
 
+        {/* Download button */}
+        <a
+          href={qrUrl}
+          download="ticket-festival-cubanada.png"
+          style={{
+            display: 'block', width: '100%', marginTop: '16px',
+            background: '#FACC15', color: '#000',
+            textAlign: 'center', padding: '14px',
+            borderRadius: '10px', fontWeight: 900,
+            fontSize: '14px', letterSpacing: '1px',
+            textDecoration: 'none', textTransform: 'uppercase',
+            fontFamily: '"Arial Black", Arial, sans-serif',
+          }}
+        >
+          Descargar QR ↓
+        </a>
+
         {/* Footer */}
         <p style={{ textAlign: 'center', color: '#333', fontSize: '10px',
                     fontFamily: 'Arial, sans-serif', marginTop: '20px' }}>
