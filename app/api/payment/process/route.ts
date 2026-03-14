@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
     },
     body: JSON.stringify({
       transaction_amount: body.amount,
+      currency_id:        'PEN',
       token:              body.formData.token,
       payment_method_id:  body.formData.paymentMethodId,
       installments:       body.formData.installments ?? 1,
