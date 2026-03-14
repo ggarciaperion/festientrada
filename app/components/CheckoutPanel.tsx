@@ -1,13 +1,14 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
-import { CardPayment, initMercadoPago } from '@mercadopago/sdk-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import type { ICardPaymentFormData, ICardPaymentBrickPayer } from '@mercadopago/sdk-react/esm/bricks/cardPayment/type';
 
-// Initialize MercadoPago once at module level
-initMercadoPago(process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ?? '', {
-  locale: 'es-PE',
-});
+// Load CardPayment only on the client (ssr: false prevents server-side execution)
+const MPCardPayment = dynamic(
+  () => import('@mercadopago/sdk-react').then((m) => m.CardPayment),
+  { ssr: false }
+);
 
 // ── Icons ────────────────────────────────────────────────────
 function IconBack() {
@@ -50,10 +51,19 @@ export default function CheckoutPanel({
   onSuccess,
   onCancel,
 }: CheckoutPanelProps) {
+  const [mpReady,  setMpReady]  = useState(false);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState('');
   const onSuccessRef = useRef(onSuccess);
   onSuccessRef.current = onSuccess;
+
+  // Initialize MP only on the client (useEffect never runs on the server)
+  useEffect(() => {
+    import('@mercadopago/sdk-react').then(({ initMercadoPago }) => {
+      initMercadoPago(process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ?? '', { locale: 'es-PE' });
+      setMpReady(true);
+    });
+  }, []);
 
   // Stable initialization — prevents brick recreation on re-renders
   const initialization = useMemo(() => ({
@@ -111,14 +121,14 @@ export default function CheckoutPanel({
         <p className="font-heading font-black text-2xl text-amber-400">S/ {amount}</p>
       </div>
 
-      {/* MP Card Payment Brick */}
-      <CardPayment
+      {/* MP Card Payment Brick — only rendered after client-side init */}
+      {mpReady && <MPCardPayment
         initialization={initialization}
         customization={customization}
         onSubmit={handleSubmit}
         onReady={() => setLoading(false)}
         onError={(err) => console.error('MP Brick error:', err)}
-      />
+      />}
 
       {/* Loading overlay — shown until onReady fires */}
       {loading && (
