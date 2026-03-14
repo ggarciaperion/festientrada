@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // ── Icons ────────────────────────────────────────────────────
 function IconSpin() {
@@ -54,95 +54,77 @@ export default function CheckoutPanel({
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
 
-  const orderIdRef     = useRef('');
-  const onSuccessRef   = useRef(onSuccess);
+  // Prevent double-init (React StrictMode / HMR)
+  const initDone     = useRef(false);
+  const orderIdRef   = useRef('');
+  const onSuccessRef = useRef(onSuccess);
   onSuccessRef.current = onSuccess;
-  const mountRef       = useRef(true);
-  // Container ref — el div kr-embedded se crea via DOM para que React nunca lo toque
-  const containerRef   = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    mountRef.current = true;
-    let KR: any = null;
+    if (initDone.current) return;
+    initDone.current = true;
 
-    // Crear kr-embedded fuera del control de React para que Izipay pueda
-    // inyectar iframes libremente sin que el reconciliador de React los borre
-    const krDiv = document.createElement('div');
-    krDiv.className = 'kr-embedded';
-    containerRef.current?.appendChild(krDiv);
-
-    (async () => {
+    async function setup() {
       try {
-        // ── Step 1: get formToken from our backend ──────────
-        const tkRes  = await fetch('/api/payment/create-token', {
+        // 1. Get formToken from backend
+        const res    = await fetch('/api/payment/create-token', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify({ amount, buyerInfo, purchaseDetails }),
         });
-        const tkData = await tkRes.json() as { ok: boolean; formToken?: string; orderId?: string; error?: string };
+        const tkData = await res.json() as {
+          ok: boolean; formToken?: string; orderId?: string; error?: string;
+        };
         if (!tkData.ok || !tkData.formToken) throw new Error(tkData.error ?? 'Error al iniciar el pago');
-
         orderIdRef.current = tkData.orderId ?? '';
-        if (!mountRef.current) return;
 
-        // ── Step 2: load Izipay JS library ──────────────────
+        // 2. Load Izipay library (same as official demo)
         const KRGlue = (await import('@lyracom/embedded-form-glue')).default;
         const pubKey = process.env.NEXT_PUBLIC_IZIPAY_PUBLIC_KEY
                     ?? '11406906:testpublickey_ffx4LMrT5epDJ49K87Z3Ol0Wadn80L5o6r5NV7qWWNAeM';
+        const { KR } = await KRGlue.loadLibrary('https://api.micuentaweb.pe', pubKey);
 
-        ({ KR } = await KRGlue.loadLibrary('https://api.micuentaweb.pe', pubKey));
-        if (!mountRef.current) { KR?.removeForms?.(); return; }
-
-        // ── Step 3: configure form ───────────────────────────
+        // 3. Configure form
         await KR.setFormConfig({ formToken: tkData.formToken, 'kr-language': 'es-ES' });
-        if (!mountRef.current) { KR?.removeForms?.(); return; }
-
         setLoading(false);
 
-        // ── Step 4: handle payment submission ────────────────
-        KR.onSubmit(async (r: { rawClientAnswer: string; hash: string }) => {
-          if (!mountRef.current) return false;
+        // 4. Handle submission
+        await KR.onSubmit(async (resp: { rawClientAnswer: string; hash: string }) => {
           setError('');
-
           try {
             const vRes  = await fetch('/api/payment/process', {
               method:  'POST',
               headers: { 'Content-Type': 'application/json' },
               body:    JSON.stringify({
-                rawClientAnswer: r.rawClientAnswer,
-                hash:            r.hash,
+                rawClientAnswer: resp.rawClientAnswer,
+                hash:            resp.hash,
                 buyerInfo,
                 purchaseDetails,
                 amount,
                 orderId: orderIdRef.current,
               }),
             });
-            const vData = await vRes.json() as { ok: boolean; orderId?: string; ticketToken?: string; error?: string };
-
-            if (vData.ok) {
-              onSuccessRef.current(vData.orderId ?? '', vData.ticketToken ?? '');
+            const data = await vRes.json() as {
+              ok: boolean; orderId?: string; ticketToken?: string; error?: string;
+            };
+            if (data.ok) {
+              onSuccessRef.current(data.orderId ?? '', data.ticketToken ?? '');
             } else {
-              setError(vData.error ?? 'Pago no aprobado. Intenta de nuevo.');
+              setError(data.error ?? 'Pago no aprobado. Intenta de nuevo.');
             }
           } catch {
             setError('Error de conexión. Intenta de nuevo.');
           }
-
           return false;
         });
 
       } catch (e) {
-        if (!mountRef.current) return;
         setError(e instanceof Error ? e.message : 'Error al cargar el formulario de pago');
         setLoading(false);
       }
-    })();
+    }
 
-    return () => {
-      mountRef.current = false;
-      try { KR?.removeForms?.(); } catch { /* ignore */ }
-      try { containerRef.current?.removeChild(krDiv); } catch { /* ignore */ }
-    };
+    setup();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -157,7 +139,7 @@ export default function CheckoutPanel({
       </button>
 
       {/* Amount summary */}
-      <div className="bg-amber-500/8 border border-amber-500/20 rounded-xl p-3 mb-5 flex items-center justify-between">
+      <div className="bg-amber-500/8 border border-amber-500/20 rounded-xl p-3 mb-4 flex items-center justify-between">
         <div>
           <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Total a pagar</p>
           <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[160px]">{description}</p>
@@ -165,16 +147,16 @@ export default function CheckoutPanel({
         <p className="font-heading font-black text-2xl text-amber-400">S/ {amount}</p>
       </div>
 
-      {/* Spinner mientras Izipay carga */}
+      {/* Loading */}
       {loading && (
-        <div className="flex flex-col items-center justify-center py-10 gap-3">
+        <div className="flex flex-col items-center justify-center py-8 gap-3">
           <IconSpin />
           <p className="text-xs text-slate-500">Cargando formulario de pago seguro...</p>
         </div>
       )}
 
-      {/* Contenedor donde se inyecta kr-embedded via DOM (fuera de React) */}
-      <div ref={containerRef} style={{ width: '100%' }} />
+      {/* Izipay form — div simple igual que el demo oficial, Izipay inyecta aquí */}
+      <div className="kr-embedded" />
 
       {/* Error */}
       {error && (
