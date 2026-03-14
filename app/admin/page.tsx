@@ -75,10 +75,13 @@ export default function AdminPage() {
   };
 
   const handleBoxStatusChange = async (boxId: string, status: BoxStatus) => {
+    const action =
+      status === 'available'     ? 'set-available' :
+      status === 'temp_reserved' ? 'set-reserved'  : 'set-sold';
     await fetch('/api/boxes/admin', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ action: status === 'available' ? 'set-available' : 'set-available', boxId }),
+      body:    JSON.stringify({ action, boxId }),
     });
     loadData();
   };

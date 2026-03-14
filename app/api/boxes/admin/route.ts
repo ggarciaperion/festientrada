@@ -5,12 +5,13 @@ import type { BoxBuyer, PurchaseType } from '@/lib/boxes';
 
 // POST /api/boxes/admin
 // Protected by middleware (requires admin_session cookie).
-// Actions: set-available | mark-sold-promotor | reset
+// Actions: set-available | set-reserved | set-sold | mark-sold-promotor | reset
 const SOLD_TTL = 120 * 24 * 60 * 60; // 120 days
+const RES_TTL  = 120 * 24 * 60 * 60; // same
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null) as {
-    action:       'set-available' | 'mark-sold-promotor' | 'reset';
+    action:       'set-available' | 'set-reserved' | 'set-sold' | 'mark-sold-promotor' | 'reset';
     boxId?:       string;
     buyer?: {
       name:         string;
@@ -51,6 +52,38 @@ export async function POST(req: NextRequest) {
   if (body.action === 'set-available') {
     await Promise.all([
       kvDel(`box:sold:${boxId}`),
+      kvDel(`box:res:${boxId}`),
+      kvDel(`box:prom:${boxId}`),
+    ]);
+    return NextResponse.json({ ok: true });
+  }
+
+  // ── Set box reserved (admin override) ───────────────────────
+  if (body.action === 'set-reserved') {
+    await Promise.all([
+      kvDel(`box:sold:${boxId}`),
+      kvDel(`box:prom:${boxId}`),
+    ]);
+    // Use a far-future expiry — admin reservation has no timeout
+    await kvSet(`box:res:${boxId}`, JSON.stringify({ reservedAt: new Date().toISOString(), source: 'admin' }), RES_TTL);
+    return NextResponse.json({ ok: true });
+  }
+
+  // ── Set box sold (admin direct, no buyer details) ────────────
+  if (body.action === 'set-sold') {
+    const placeholder: BoxBuyer = {
+      buyerId:      'admin',
+      name:         'Vendido por Admin',
+      email:        '',
+      phone:        '',
+      dni:          '',
+      entries:      0,
+      purchaseType: 'full',
+      paidAmount:   0,
+      purchasedAt:  new Date().toISOString(),
+    };
+    await Promise.all([
+      kvSet(`box:sold:${boxId}`, JSON.stringify(placeholder), SOLD_TTL),
       kvDel(`box:res:${boxId}`),
       kvDel(`box:prom:${boxId}`),
     ]);
