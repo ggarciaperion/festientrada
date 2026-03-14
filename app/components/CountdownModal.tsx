@@ -3,14 +3,14 @@
 import { useEffect, useState } from 'react';
 
 // Launch: March 14 2026 at 4:00 PM Peru time (UTC-5) = 21:00 UTC
-const LAUNCH = new Date('2026-03-14T21:00:00Z');
+export const LAUNCH_DATE = new Date('2026-03-14T21:00:00Z');
+const LAUNCH = LAUNCH_DATE;
 
 interface TimeLeft { h: number; m: number; s: number }
 
 export default function CountdownModal() {
-  const [timeLeft,  setTimeLeft]  = useState<TimeLeft | null>(null);
-  const [launched,  setLaunched]  = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(null);
+  const [launched, setLaunched] = useState(false);
 
   useEffect(() => {
     // Already past launch — never show
@@ -21,8 +21,6 @@ export default function CountdownModal() {
       if (diff <= 0) {
         setLaunched(true);
         setTimeLeft({ h: 0, m: 0, s: 0 });
-        // Auto-dismiss 3 s after hitting zero
-        setTimeout(() => setDismissed(true), 3000);
         return;
       }
       setTimeLeft({
@@ -37,14 +35,22 @@ export default function CountdownModal() {
     return () => clearInterval(id);
   }, []);
 
-  if (!timeLeft || dismissed) return null;
+  // Auto-hide 3 s after launch
+  const [gone, setGone] = useState(false);
+  useEffect(() => {
+    if (!launched) return;
+    const t = setTimeout(() => setGone(true), 3000);
+    return () => clearTimeout(t);
+  }, [launched]);
+
+  if (!timeLeft || gone) return null;
 
   const pad = (n: number) => String(n).padStart(2, '0');
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
+      {/* Backdrop — non-clickable, fully blocks the page */}
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
 
       {/* Card */}
       <div className="relative bg-[#09090F] border border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl text-center">
@@ -100,12 +106,9 @@ export default function CountdownModal() {
           </>
         )}
 
-        <button
-          onClick={() => setDismissed(true)}
-          className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-slate-200 text-sm font-semibold transition active:scale-95"
-        >
-          {launched ? 'Ver entradas' : 'Ver la página igualmente'}
-        </button>
+        {launched && (
+          <p className="text-slate-500 text-xs mt-2">Cerrando en unos segundos...</p>
+        )}
       </div>
     </div>
   );
