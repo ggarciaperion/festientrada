@@ -12,7 +12,7 @@ import {
 } from '@/lib/promotors';
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<'tickets' | 'boxes' | 'promotores'>('tickets');
+  const [activeTab, setActiveTab] = useState<'tickets' | 'boxes' | 'promotores' | 'clientes'>('tickets');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [boxes,   setBoxes]   = useState<Box[]>([]);
   const [stats, setStats] = useState({
@@ -137,6 +137,7 @@ export default function AdminPage() {
   };
 
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [clientSearch, setClientSearch] = useState('');
 
   const handleConfirmSale = async (sale: Sale) => {
     if (!confirm(`¿Confirmar pago de ${sale.clientName} por S/ ${sale.price}?\nSe generará el QR y se enviará por email a ${sale.clientEmail}.`)) return;
@@ -244,6 +245,7 @@ export default function AdminPage() {
               { id: 'tickets',    label: '🎫 Entradas Generales' },
               { id: 'boxes',      label: '📦 Boxes' },
               { id: 'promotores', label: '👥 Promotores' },
+              { id: 'clientes',   label: '👤 Clientes' },
             ] as const).map(({ id, label }) => (
               <button
                 key={id}
@@ -706,6 +708,131 @@ export default function AdminPage() {
             })()}
           </div>
         )}
+
+        {/* ════════════════ CLIENTES TAB ════════════════ */}
+        {activeTab === 'clientes' && (() => {
+          const TICKET_TYPE_LABEL: Record<string, string> = {
+            general: 'Entrada General', vip: 'Entrada VIP',
+            supervip: 'Super VIP', platinum: 'Platinum',
+          };
+          type ClientRow = {
+            dni: string; name: string; phone: string; email: string;
+            type: string; price: number; date: string; source: 'online' | 'promotor';
+          };
+          const rows: ClientRow[] = [
+            ...tickets.map(t => ({
+              dni:    t.buyerDNI,
+              name:   t.buyerName,
+              phone:  t.buyerPhone,
+              email:  t.buyerEmail,
+              type:   `${TICKET_TYPE_LABEL[t.ticketType] ?? t.ticketType} ×${t.quantity}`,
+              price:  t.totalPrice,
+              date:   t.purchaseDate,
+              source: 'online' as const,
+            })),
+            ...promotorSales
+              .filter(s => s.status === 'confirmed')
+              .map(s => ({
+                dni:    s.clientDni,
+                name:   s.clientName,
+                phone:  '',
+                email:  s.clientEmail,
+                type:   SALE_TYPE_LABELS[s.saleType],
+                price:  s.price,
+                date:   s.confirmedAt ?? s.createdAt,
+                source: 'promotor' as const,
+              })),
+          ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+          const q = clientSearch.toLowerCase();
+          const filtered = q
+            ? rows.filter(r =>
+                r.name.toLowerCase().includes(q) ||
+                r.email.toLowerCase().includes(q) ||
+                r.dni.includes(q))
+            : rows;
+
+          const fmtDate = (iso: string) =>
+            new Date(iso).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
+
+          return (
+            <div>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+                <p className="text-white font-semibold">
+                  {filtered.length} cliente{filtered.length !== 1 ? 's' : ''} confirmados
+                </p>
+                <input
+                  type="text" placeholder="Buscar por nombre, email o DNI…"
+                  value={clientSearch} onChange={e => setClientSearch(e.target.value)}
+                  className="form-input text-sm w-full sm:w-72"
+                />
+              </div>
+              <div className="card overflow-hidden">
+                {filtered.length === 0 ? (
+                  <div className="p-8 text-center text-slate-500 text-sm">No hay clientes confirmados aún</div>
+                ) : (
+                  <>
+                    {/* Desktop table */}
+                    <div className="hidden sm:block overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-white/5">
+                            {['Fecha', 'DNI', 'Nombre', 'Teléfono', 'Email', 'Tipo de entrada', 'Precio', 'Origen'].map(h => (
+                              <th key={h} className="text-left text-xs text-slate-500 font-semibold uppercase tracking-wider px-4 py-3">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filtered.map((r, i) => (
+                            <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
+                              <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{fmtDate(r.date)}</td>
+                              <td className="px-4 py-3 text-slate-300 font-mono text-xs">{r.dni}</td>
+                              <td className="px-4 py-3 text-white font-medium">{r.name}</td>
+                              <td className="px-4 py-3 text-slate-400 text-xs">{r.phone || '—'}</td>
+                              <td className="px-4 py-3 text-slate-400 text-xs">{r.email || '—'}</td>
+                              <td className="px-4 py-3">
+                                <span className="text-xs bg-white/[0.04] border border-white/[0.08] rounded-full px-2 py-0.5 text-slate-300">{r.type}</span>
+                              </td>
+                              <td className="px-4 py-3 text-amber-400 font-bold">S/ {r.price}</td>
+                              <td className="px-4 py-3">
+                                {r.source === 'online'
+                                  ? <span className="text-xs text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded-full px-2 py-0.5">Online</span>
+                                  : <span className="text-xs text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded-full px-2 py-0.5">Promotor</span>}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {/* Mobile cards */}
+                    <div className="sm:hidden divide-y divide-white/[0.03]">
+                      {filtered.map((r, i) => (
+                        <div key={i} className="p-4 space-y-1.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-white font-medium truncate">{r.name}</p>
+                              <p className="text-slate-500 text-xs font-mono">{r.dni}</p>
+                            </div>
+                            <p className="text-amber-400 font-bold shrink-0">S/ {r.price}</p>
+                          </div>
+                          {r.phone && <p className="text-slate-400 text-xs">{r.phone}</p>}
+                          <p className="text-slate-400 text-xs truncate">{r.email || '—'}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs bg-white/[0.04] border border-white/[0.08] rounded-full px-2 py-0.5 text-slate-300">{r.type}</span>
+                            {r.source === 'online'
+                              ? <span className="text-xs text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded-full px-2 py-0.5">Online</span>
+                              : <span className="text-xs text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded-full px-2 py-0.5">Promotor</span>}
+                          </div>
+                          <p className="text-slate-600 text-xs">{fmtDate(r.date)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ════════════════ TICKETS TAB ════════════════ */}
         {activeTab === 'tickets' && <>

@@ -114,6 +114,7 @@ function SalePanel({
   const handleConfirm = async () => {
     setError('');
     if (!clientDni || !clientName) { setError('Ingresa DNI y nombre del cliente.'); return; }
+    if (clientDni.length < 8 || clientDni.length > 9) { setError('El DNI del cliente debe tener 8 o 9 dígitos.'); return; }
     if (!clientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
       setError('Ingresa un email válido del cliente.'); return;
     }
@@ -267,8 +268,8 @@ function SalePanel({
 
         <div>
           <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">DNI cliente</label>
-          <input type="text" inputMode="numeric" pattern="[0-9]*" value={clientDni}
-            onChange={e => setClientDni(e.target.value.replace(/\D/g, ''))} placeholder="12345678" className="form-input w-full text-sm" />
+          <input type="text" inputMode="numeric" pattern="[0-9]*" maxLength={9} value={clientDni}
+            onChange={e => setClientDni(e.target.value.replace(/\D/g, '').slice(0, 9))} placeholder="12345678" className="form-input w-full text-sm" />
         </div>
 
         <div>
