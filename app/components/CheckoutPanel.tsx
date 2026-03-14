@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { CardPayment, initMercadoPago } from '@mercadopago/sdk-react';
+import type { ICardPaymentFormData, ICardPaymentBrickPayer } from '@mercadopago/sdk-react/esm/bricks/cardPayment/type';
 
 // Initialize MercadoPago once at module level
 initMercadoPago(process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ?? '', {
@@ -65,12 +66,7 @@ export default function CheckoutPanel({
     paymentMethods: { minInstallments: 1, maxInstallments: 1 },
   }), []);
 
-  const handleSubmit = async (formData: {
-    token:           string;
-    installments:    number;
-    paymentMethodId: string;
-    payer?: { email?: string; identification?: { type?: string; number?: string } };
-  }) => {
+  const handleSubmit = async (formData: ICardPaymentFormData<ICardPaymentBrickPayer>) => {
     setError('');
     try {
       const res  = await fetch('/api/payment/process', {
