@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import MapSection from '@/app/components/MapSection';
+import AudioPlayer from '@/app/components/AudioPlayer';
 
 /* ── Zone definitions ──────────────────────────────────── */
 const ZONES = [
@@ -437,6 +438,8 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      <AudioPlayer />
     </main>
   );
 }

@@ -268,7 +268,7 @@ function SalePanel({
         <div>
           <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">DNI cliente</label>
           <input type="text" inputMode="numeric" pattern="[0-9]*" value={clientDni}
-            onChange={e => setClientDni(e.target.value)} placeholder="12345678" className="form-input w-full text-sm" />
+            onChange={e => setClientDni(e.target.value.replace(/\D/g, ''))} placeholder="12345678" className="form-input w-full text-sm" />
         </div>
 
         <div>
