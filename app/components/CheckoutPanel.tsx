@@ -21,6 +21,29 @@ function IconLock() {
     </svg>
   );
 }
+function IconXCircle() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+    </svg>
+  );
+}
+
+// ── Rejection reason → human message ─────────────────────────
+function rejectionMessage(detail: string): string {
+  if (detail.includes('insufficient_amount'))   return 'Fondos insuficientes en la tarjeta.';
+  if (detail.includes('high_risk'))             return 'Tu banco rechazó el pago por razones de seguridad. Intenta con otra tarjeta o contacta tu banco.';
+  if (detail.includes('blacklist'))             return 'Tu banco rechazó el pago. Contacta a tu banco para autorizar la operación.';
+  if (detail.includes('invalid_installments'))  return 'Número de cuotas no válido para esta tarjeta.';
+  if (detail.includes('expired'))               return 'La tarjeta está vencida. Verifica la fecha de vencimiento.';
+  if (detail.includes('bad_filled_card_number')) return 'Número de tarjeta incorrecto. Revísalo e intenta de nuevo.';
+  if (detail.includes('bad_filled_date'))       return 'Fecha de vencimiento incorrecta. Revísala e intenta de nuevo.';
+  if (detail.includes('bad_filled_security_code')) return 'Código de seguridad (CVV) incorrecto. Revísalo e intenta de nuevo.';
+  if (detail.includes('bad_filled_other'))      return 'Algún dato de la tarjeta es incorrecto. Revisa los datos e intenta de nuevo.';
+  if (detail.includes('rejected'))              return 'El pago fue rechazado. Verifica los datos de tu tarjeta e intenta de nuevo.';
+  if (detail.includes('pending'))               return 'El pago está en revisión. Recibirás un email cuando sea confirmado.';
+  return 'El pago no pudo procesarse. Verifica los datos de tu tarjeta e intenta de nuevo.';
+}
 
 // ── Props ────────────────────────────────────────────────────
 export interface PurchaseDetails {
@@ -47,8 +70,9 @@ export default function CheckoutPanel({
   onSuccess,
   onCancel,
 }: CheckoutPanelProps) {
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState('');
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState('');
+  const [errorModal, setErrorModal] = useState('');
   const onSuccessRef = useRef(onSuccess);
   onSuccessRef.current = onSuccess;
 
@@ -82,15 +106,42 @@ export default function CheckoutPanel({
       if (data.ok) {
         onSuccessRef.current(data.orderId ?? '', data.ticketToken ?? '');
       } else {
-        setError(data.error ?? 'Pago no aprobado. Intenta de nuevo.');
+        const raw = data.error ?? '';
+        // Extract status_detail from "Pago no aprobado: xxx"
+        const detail = raw.replace('Pago no aprobado: ', '');
+        setErrorModal(rejectionMessage(detail));
       }
     } catch {
-      setError('Error de conexión. Intenta de nuevo.');
+      setErrorModal('Error de conexión. Verifica tu internet e intenta de nuevo.');
     }
   };
 
   return (
     <div>
+      {/* ── Payment error modal ───────────────────────────── */}
+      {errorModal && (
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setErrorModal('')} />
+          <div className="relative bg-[#0d0d1a] border border-rose-500/25 rounded-2xl p-6 w-full max-w-[340px] shadow-2xl animate-fade-in-up">
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="w-14 h-14 rounded-full bg-rose-500/10 border border-rose-500/25 flex items-center justify-center text-rose-400">
+                <IconXCircle />
+              </div>
+              <div>
+                <p className="text-white font-bold text-base leading-tight">Pago no procesado</p>
+                <p className="text-slate-400 text-sm mt-2 leading-relaxed">{errorModal}</p>
+              </div>
+              <button
+                onClick={() => setErrorModal('')}
+                className="mt-1 w-full py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-400 text-sm font-semibold transition active:scale-95"
+              >
+                Intentar de nuevo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Back button */}
       <button
         onClick={onCancel}
@@ -130,13 +181,6 @@ export default function CheckoutPanel({
           </svg>
           <p className="text-xs text-slate-500">Cargando formulario de pago seguro...</p>
         </div>
-      )}
-
-      {/* Error */}
-      {error && (
-        <p className="mt-3 text-[12px] text-rose-400 bg-rose-500/8 border border-rose-500/20 rounded-lg px-3 py-2">
-          {error}
-        </p>
       )}
 
       {/* Security badge */}
