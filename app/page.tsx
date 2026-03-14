@@ -397,7 +397,7 @@ export default function Home() {
             <div className="sm:col-span-2 md:col-span-2">
               <p className="font-heading font-bold text-white text-lg mb-2">Perion Entertainment</p>
               <p className="text-slate-400 text-sm leading-relaxed max-w-xs">
-                Venta oficial de entradas y recaudación para el Festival Cubanada Chancay 2026.
+                Venta oficial de entradas y recaudación para el Festival de Salsa y Timba Chancay 2026.
               </p>
             </div>
 
