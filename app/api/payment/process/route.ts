@@ -26,6 +26,13 @@ export async function POST(req: NextRequest) {
 
   const orderId = `FCP-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 
+  // Split full name into first/last for MP fraud scoring
+  const nameParts = body.buyerInfo.name.trim().split(/\s+/);
+  const firstName = nameParts[0] ?? body.buyerInfo.name;
+  const lastName  = nameParts.slice(1).join(' ') || firstName;
+
+  const phoneDigits = body.buyerInfo.phone.replace(/\D/g, '');
+
   // ── Create payment via MercadoPago REST API ───────────────
   const mpRes = await fetch('https://api.mercadopago.com/v1/payments', {
     method:  'POST',
@@ -39,15 +46,41 @@ export async function POST(req: NextRequest) {
       token:              body.formData.token,
       payment_method_id:  body.formData.paymentMethodId,
       installments:       body.formData.installments ?? 1,
+      description:        `Festival de Salsa y Timba · ${body.purchaseDetails.zone} · ${body.purchaseDetails.type}`,
+      external_reference: orderId,
+      three_d_secure_mode: 'optional',
       payer: {
-        email:          body.buyerInfo.email,
+        email:      body.buyerInfo.email,
+        first_name: firstName,
+        last_name:  lastName,
+        phone: {
+          area_code: '51',
+          number:    phoneDigits,
+        },
         identification: {
           type:   body.formData.payer?.identification?.type   ?? 'DNI',
           number: body.formData.payer?.identification?.number ?? body.buyerInfo.dni,
         },
       },
-      description:        `Festival de Salsa y Timba · ${body.purchaseDetails.zone} · ${body.purchaseDetails.type}`,
-      external_reference: orderId,
+      additional_info: {
+        items: [{
+          id:          orderId,
+          title:       `Entrada ${body.purchaseDetails.type} · Zona ${body.purchaseDetails.zone}`,
+          description: `Festival de Salsa y Timba Chancay 2026`,
+          category_id: 'tickets',
+          quantity:    body.purchaseDetails.qty,
+          unit_price:  body.amount / Math.max(body.purchaseDetails.qty, 1),
+        }],
+        payer: {
+          first_name:         firstName,
+          last_name:          lastName,
+          registration_date:  new Date().toISOString(),
+          phone: {
+            area_code: '51',
+            number:    phoneDigits,
+          },
+        },
+      },
     }),
   }).catch(e => {
     console.error('MP fetch error:', e);
