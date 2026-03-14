@@ -14,6 +14,7 @@ export default function AudioPlayer() {
   const curIdx   = useRef(0);
   const started  = useRef(false);
   const fading   = useRef(false);
+  const pool     = useRef<HTMLAudioElement[]>([]); // pre-unlocked on iOS
 
   // Show modal 1.5 s after page loads
   useEffect(() => {
@@ -28,8 +29,10 @@ export default function AudioPlayer() {
 
     const old      = curAudio.current;
     const nextIdx  = (curIdx.current + 1) % TRACKS.length;
-    const next     = new Audio(TRACKS[nextIdx]);
-    next.volume    = 0;
+    // Reuse the element already unlocked during the user gesture (iOS policy)
+    const next     = pool.current[nextIdx] ?? new Audio(TRACKS[nextIdx]);
+    next.currentTime = 0;
+    next.volume      = 0;
     next.play().catch(() => {});
 
     const ticks    = FADE_MS / 60;
@@ -69,10 +72,21 @@ export default function AudioPlayer() {
     if (started.current) return;
     started.current = true;
 
-    const audio      = new Audio(TRACKS[0]);
+    // Create ALL elements inside this user-gesture so iOS unlocks them all
+    const audios = TRACKS.map(src => new Audio(src));
+    pool.current = audios;
+
+    const audio      = audios[0];
     audio.volume     = BASE_VOL;
     curAudio.current = audio;
     curIdx.current   = 0;
+
+    // Touch-play every subsequent track (volume 0) so iOS marks them as
+    // "activated by user gesture" — then immediately pause & rewind.
+    audios.slice(1).forEach(a => {
+      a.volume = 0;
+      a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+    });
 
     audio.play()
       .then(() => { setOn(true); watchEnd(audio); })
