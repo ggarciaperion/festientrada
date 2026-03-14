@@ -324,6 +324,19 @@ body {
   width: 100% !important;
   cursor: pointer !important;
 }
+/* Contenedores intermedios — altura automática para evitar colapso */
+.kr-pan,
+.kr-expiry,
+.kr-security-code,
+.kr-cardholder-name,
+.kr-form-error,
+.kr-inner-wrapper,
+.kr-fields-wrapper,
+.kr-field {
+  display: block !important;
+  height: auto !important;
+  overflow: visible !important;
+}
 
 /* ── Responsive ─────────────────────────────────────────── */
 @media (min-width: 768px) {

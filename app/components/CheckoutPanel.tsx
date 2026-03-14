@@ -156,8 +156,18 @@ export default function CheckoutPanel({
         <p className="text-xs text-slate-500">Cargando formulario de pago seguro...</p>
       </div>
 
-      {/* Izipay form — must stay at fixed position in the tree; never conditionally rendered */}
-      <div className="kr-embedded" />
+      {/* Izipay form — dangerouslySetInnerHTML so React never reconciles the children.
+          Explicit kr-* divs force Izipay into direct card-fields mode (no method selector). */}
+      <div
+        className="kr-embedded"
+        dangerouslySetInnerHTML={{ __html:
+          '<div class="kr-pan"></div>' +
+          '<div class="kr-expiry"></div>' +
+          '<div class="kr-security-code"></div>' +
+          '<button class="kr-payment-button"></button>' +
+          '<div class="kr-form-error"></div>'
+        }}
+      />
 
       {/* Error — after kr-embedded, so it doesn't shift its position */}
       <p
