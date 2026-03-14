@@ -12,6 +12,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'boxId requerido' }, { status: 400 });
   }
 
+  if (!body?.sessionId) {
+    return NextResponse.json({ ok: false, error: 'sessionId requerido' }, { status: 400 });
+  }
+
   const { boxId, sessionId } = body;
 
   if (!kvAvailable()) {

@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import CheckoutPanel from './CheckoutPanel';
+const CheckoutPanel = dynamic(() => import('./CheckoutPanel'), { ssr: false });
 import {
   getBoxSVGPos,
   BOX_PRICES,

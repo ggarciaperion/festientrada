@@ -7,9 +7,7 @@ import { sendConfirmationEmail } from '@/lib/email';
 // Disabled in production unless SIMULATE_PAYMENT=true env var is set.
 
 export async function POST(req: NextRequest) {
-  const allowed =
-    process.env.SIMULATE_PAYMENT === 'true' ||
-    process.env.NODE_ENV !== 'production';
+  const allowed = process.env.SIMULATE_PAYMENT === 'true';
 
   if (!allowed) {
     return NextResponse.json({ ok: false, error: 'No disponible en producción' }, { status: 403 });

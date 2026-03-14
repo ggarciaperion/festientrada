@@ -52,9 +52,9 @@ export async function POST(req: NextRequest) {
 
   const total = effectiveTotal(payload.type, payload.qty);
 
-  // No Redis — allow through (HMAC is the only protection)
+  // No Redis — reject to prevent double-entry
   if (!kvAvailable()) {
-    return NextResponse.json({ ok: true, entered: body.count ?? total, remaining: 0, total, noRedis: true });
+    return NextResponse.json({ ok: false, error: 'Sistema de validación no disponible. Contacta al administrador.' }, { status: 503 });
   }
 
   const key = `ticket:counter:${payload.id}`;

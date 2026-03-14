@@ -66,10 +66,9 @@ export default function ValidarPage() {
           setMode('select');
           setState('ready');
         } else {
-          // Platinum / VIP / Malecón: auto-confirm ALL on first scan
+          // Platinum / VIP / Malecón: show confirmation screen, staff must press button
           setMode('auto');
-          setState('confirming');
-          confirmEntries(token, data.remaining!);
+          setState('ready');
         }
       })
       .catch(() => { setError('Error de red.'); setState('invalid'); });
@@ -125,6 +124,36 @@ export default function ValidarPage() {
             <p className="text-sm text-slate-400">
               {state === 'confirming' ? 'Registrando ingreso...' : 'Verificando entrada...'}
             </p>
+          </div>
+        )}
+
+        {/* ── PLATINUM / VIP / MALECÓN: confirmación manual ── */}
+        {state === 'ready' && mode === 'auto' && info?.payload && (
+          <div className="rounded-2xl overflow-hidden border-2 border-amber-400">
+            <div className="bg-amber-500 px-5 py-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+              <div>
+                <p className="font-black text-white text-base">ENTRADA VÁLIDA</p>
+                <p className="text-amber-100 text-xs">Confirma antes de entregar pulsera</p>
+              </div>
+            </div>
+            <div className="bg-[#07071a] px-5 py-3 space-y-2 border-b border-white/5">
+              <Row label="Nombre" value={name} />
+              <Row label="Zona"   value={ZONE_LABEL[zone] ?? zone.toUpperCase()} color={ZONE_COLOR[zone]} />
+              <Row label="Pulseras" value={`${total}`} />
+            </div>
+            <div className="bg-[#07071a] px-5 pb-5 pt-3">
+              {error && <p className="text-rose-400 text-xs mb-3 text-center">{error}</p>}
+              <button onClick={() => { setState('confirming'); confirmEntries(token, remaining); }}
+                className="w-full rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95
+                           text-black font-black text-base py-4 transition">
+                ENTREGAR {plural(remaining, 'PULSERA')}
+              </button>
+            </div>
           </div>
         )}
 
