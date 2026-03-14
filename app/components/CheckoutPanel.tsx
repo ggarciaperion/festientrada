@@ -174,7 +174,7 @@ export default function CheckoutPanel({
       )}
 
       {/* Contenedor donde se inyecta kr-embedded via DOM (fuera de React) */}
-      <div ref={containerRef} />
+      <div ref={containerRef} style={{ width: '100%' }} />
 
       {/* Error */}
       {error && (
