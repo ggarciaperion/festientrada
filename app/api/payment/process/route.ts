@@ -1,59 +1,78 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
+import { v4 as uuidv4 } from 'uuid';
 import { generateTicketToken } from '@/lib/tickets';
 import { sendConfirmationEmail } from '@/lib/email';
 
-const IZIPAY_HMAC = process.env.IZIPAY_HMAC!;
+const MP_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN!;
 
 // POST /api/payment/process
-// Validates the Izipay payment signature and generates a signed ticket token.
+// Creates a MercadoPago payment using the card token from the frontend brick.
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null) as {
-    rawClientAnswer: string;
-    hash:            string;
+    formData: {
+      token:           string;
+      installments:    number;
+      paymentMethodId: string;
+      payer?: { email?: string; identification?: { type?: string; number?: string } };
+    };
     buyerInfo:       { name: string; email: string; phone: string; dni: string };
     purchaseDetails: { type: 'box' | 'individual'; zone: string; qty: number };
     amount:          number;
-    orderId?:        string;
   } | null;
 
-  if (!body?.rawClientAnswer || !body?.hash) {
+  if (!body?.formData?.token || !body?.buyerInfo || !body?.amount) {
     return NextResponse.json({ ok: false, error: 'Datos de pago incompletos' }, { status: 400 });
   }
 
-  // ── 1. Verify HMAC-SHA256 signature ─────────────────────────
-  const computed = crypto
-    .createHmac('sha256', IZIPAY_HMAC)
-    .update(body.rawClientAnswer)
-    .digest('hex');
+  const orderId = `FCP-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 
-  if (computed !== body.hash) {
-    console.error('Izipay HMAC mismatch', { computed, received: body.hash });
-    return NextResponse.json({ ok: false, error: 'Firma de pago inválida' }, { status: 400 });
+  // ── Create payment via MercadoPago REST API ───────────────
+  const mpRes = await fetch('https://api.mercadopago.com/v1/payments', {
+    method:  'POST',
+    headers: {
+      'Content-Type':      'application/json',
+      'Authorization':     `Bearer ${MP_ACCESS_TOKEN}`,
+      'X-Idempotency-Key': uuidv4(),
+    },
+    body: JSON.stringify({
+      transaction_amount: body.amount,
+      token:              body.formData.token,
+      payment_method_id:  body.formData.paymentMethodId,
+      installments:       body.formData.installments ?? 1,
+      payer: {
+        email:          body.buyerInfo.email,
+        identification: {
+          type:   body.formData.payer?.identification?.type   ?? 'DNI',
+          number: body.formData.payer?.identification?.number ?? body.buyerInfo.dni,
+        },
+      },
+      description:        `Festival de Salsa y Timba · ${body.purchaseDetails.zone} · ${body.purchaseDetails.type}`,
+      external_reference: orderId,
+    }),
+  }).catch(e => {
+    console.error('MP fetch error:', e);
+    return null;
+  });
+
+  if (!mpRes) {
+    return NextResponse.json({ ok: false, error: 'Error de conexión con MercadoPago' }, { status: 502 });
   }
 
-  // ── 2. Parse client answer ───────────────────────────────────
-  let clientAnswer: {
-    orderStatus?: string;
-    orderId?:     string;
-    transactions?: Array<{ uuid?: string; status?: string }>;
+  const mpData = await mpRes.json() as {
+    status:         string;
+    status_detail:  string;
+    id?:            number;
+    error?:         string;
+    message?:       string;
   };
-  try {
-    clientAnswer = JSON.parse(Buffer.from(body.rawClientAnswer, 'base64').toString('utf-8'));
-  } catch {
-    return NextResponse.json({ ok: false, error: 'Respuesta de pago inválida' }, { status: 400 });
+
+  if (mpData.status !== 'approved') {
+    console.error('MP payment not approved:', mpData);
+    const detail = mpData.status_detail ?? mpData.message ?? mpData.status ?? 'rechazado';
+    return NextResponse.json({ ok: false, error: `Pago no aprobado: ${detail}` });
   }
 
-  if (clientAnswer.orderStatus !== 'PAID') {
-    const status = clientAnswer.orderStatus ?? 'desconocido';
-    return NextResponse.json({ ok: false, error: `Pago no aprobado (${status}). Intenta de nuevo.` });
-  }
-
-  // ── 3. Generate ticket token & send email ────────────────────
-  const orderId = body.orderId
-    ?? clientAnswer.orderId
-    ?? `FCP-${clientAnswer.transactions?.[0]?.uuid ?? Date.now()}`;
-
+  // ── Generate ticket token & send email ────────────────────
   let ticketToken: string | undefined;
   try {
     if (body.purchaseDetails && body.buyerInfo) {
