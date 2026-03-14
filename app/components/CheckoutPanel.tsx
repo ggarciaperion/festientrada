@@ -147,23 +147,25 @@ export default function CheckoutPanel({
         <p className="font-heading font-black text-2xl text-amber-400">S/ {amount}</p>
       </div>
 
-      {/* Loading */}
-      {loading && (
-        <div className="flex flex-col items-center justify-center py-8 gap-3">
-          <IconSpin />
-          <p className="text-xs text-slate-500">Cargando formulario de pago seguro...</p>
-        </div>
-      )}
+      {/* Loading — CSS visibility, never unmounts so kr-embedded stays at fixed DOM position */}
+      <div
+        className="flex flex-col items-center justify-center py-8 gap-3"
+        style={{ display: loading ? 'flex' : 'none' }}
+      >
+        <IconSpin />
+        <p className="text-xs text-slate-500">Cargando formulario de pago seguro...</p>
+      </div>
 
-      {/* Izipay form — div simple igual que el demo oficial, Izipay inyecta aquí */}
+      {/* Izipay form — must stay at fixed position in the tree; never conditionally rendered */}
       <div className="kr-embedded" />
 
-      {/* Error */}
-      {error && (
-        <p className="mt-3 text-[12px] text-rose-400 bg-rose-500/8 border border-rose-500/20 rounded-lg px-3 py-2">
-          {error}
-        </p>
-      )}
+      {/* Error — after kr-embedded, so it doesn't shift its position */}
+      <p
+        className="mt-3 text-[12px] text-rose-400 bg-rose-500/8 border border-rose-500/20 rounded-lg px-3 py-2"
+        style={{ display: error ? 'block' : 'none' }}
+      >
+        {error}
+      </p>
 
       {/* Security badge */}
       <p className="text-center text-[10px] text-slate-700 mt-4 flex items-center justify-center gap-1">
