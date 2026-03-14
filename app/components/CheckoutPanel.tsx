@@ -1,19 +1,10 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
-import dynamic from 'next/dynamic';
+import { CardPayment, initMercadoPago } from '@mercadopago/sdk-react';
 import type { ICardPaymentFormData, ICardPaymentBrickPayer } from '@mercadopago/sdk-react/esm/bricks/cardPayment/type';
 
-// initMercadoPago + CardPayment loaded in the SAME import context (same bundle chunk)
-// so the initialized MP instance is shared with the brick that renders it.
-// ssr:false ensures this never runs on the server.
-const MPCardPayment = dynamic(
-  () => import('@mercadopago/sdk-react').then((m) => {
-    m.initMercadoPago(process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ?? '', { locale: 'es-PE' });
-    return { default: m.CardPayment };
-  }),
-  { ssr: false }
-);
+initMercadoPago(process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ?? '', { locale: 'es-PE' });
 
 // ── Icons ────────────────────────────────────────────────────
 function IconBack() {
@@ -118,7 +109,7 @@ export default function CheckoutPanel({
       </div>
 
       {/* MP Card Payment Brick */}
-      <MPCardPayment
+      <CardPayment
         initialization={initialization}
         customization={customization}
         onSubmit={handleSubmit}
