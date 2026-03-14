@@ -180,7 +180,7 @@ export default function AdminPage() {
           <div className="flex justify-between items-center mb-6">
             <div>
               <h1 className="font-heading font-black text-3xl text-white mb-1">Panel de Administración</h1>
-              <p className="text-slate-400 text-sm">Festival Cubanada Chancay 2026</p>
+              <p className="text-slate-400 text-sm">Festival de Salsa y Timba Chancay 2026</p>
             </div>
             <div className="flex gap-3">
               <button onClick={loadData} className="btn-secondary text-sm px-4 py-2">🔄 Actualizar</button>

@@ -736,7 +736,7 @@ function SuccessModal({ label, onClose }: { label: string; onClose: () => void }
 
           <h2 className="font-heading font-black text-white text-2xl mb-1">¡Pago confirmado!</h2>
           <p className="text-emerald-400 text-sm font-semibold mb-1">{label}</p>
-          <p className="text-slate-500 text-xs mb-5">Festival Cubanada Perion · 29 Mar 2026</p>
+          <p className="text-slate-500 text-xs mb-5">Festival de Salsa y Timba · Chancay 2026</p>
 
           {/* Email notice */}
           <div className="bg-emerald-500/8 border border-emerald-500/25 rounded-xl p-4 mb-6 text-left">
@@ -919,15 +919,15 @@ export default function MapSection() {
   const checkoutDescription = (() => {
     if (!purchaseCtx) return '';
     if (purchaseCtx.type === 'box' && selectedBox) {
-      return `Box ${selectedBox.id} · ${ZONE_COLORS[selectedBox.zone].label} · Festival Cubanada Perion`;
+      return `Box ${selectedBox.id} · ${ZONE_COLORS[selectedBox.zone].label} · Festival de Salsa y Timba`;
     }
     if (purchaseCtx.type === 'individual') {
       const zoneLabel = purchaseCtx.zone === 'general'
         ? 'General'
         : ZONE_COLORS[purchaseCtx.zone as BoxZone].label;
-      return `${purchaseCtx.entries} entrada(s) ${zoneLabel} · Festival Cubanada Perion`;
+      return `${purchaseCtx.entries} entrada(s) ${zoneLabel} · Festival de Salsa y Timba`;
     }
-    return 'Festival Cubanada Perion';
+    return 'Festival de Salsa y Timba';
   })();
 
   const handleModalClose = () => {

@@ -113,7 +113,7 @@ export default function ValidarPage() {
 
       <div className="mb-5 text-center">
         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Perion Entertainment</p>
-        <p className="text-xs text-slate-500">Festival Cubanada · Chancay 2026</p>
+        <p className="text-xs text-slate-500">Festival de Salsa y Timba · Chancay 2026</p>
       </div>
 
       <div className="w-full max-w-sm space-y-3">
