@@ -213,16 +213,16 @@ export default function AdminPage() {
   };
 
   return (
-    <main className="min-h-screen py-20 bg-[#09090F]">
+    <main className="min-h-screen py-10 sm:py-20 bg-[#09090F]">
       <div className="container mx-auto px-4 max-w-7xl">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-6">
             <div>
-              <h1 className="font-heading font-black text-3xl text-white mb-1">Panel de Administración</h1>
+              <h1 className="font-heading font-black text-2xl sm:text-3xl text-white mb-1">Panel de Administración</h1>
               <p className="text-slate-400 text-sm">Festival de Salsa y Timba Chancay 2026</p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-2">
               <button onClick={loadData} className="btn-secondary text-sm px-4 py-2">🔄 Actualizar</button>
               <Link href="/mapa" className="btn-secondary text-sm px-4 py-2">Ver Mapa</Link>
               <Link href="/" className="btn-primary text-sm px-4 py-2">Ver Sitio</Link>
@@ -239,16 +239,16 @@ export default function AdminPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-2 border-b border-white/8 pb-0">
+          <div className="flex gap-1 sm:gap-2 border-b border-white/8 pb-0 overflow-x-auto">
             {([
               { id: 'tickets',    label: '🎫 Entradas Generales' },
-              { id: 'boxes',      label: '📦 Gestión de Boxes' },
+              { id: 'boxes',      label: '📦 Boxes' },
               { id: 'promotores', label: '👥 Promotores' },
             ] as const).map(({ id, label }) => (
               <button
                 key={id}
                 onClick={() => setActiveTab(id)}
-                className={`px-5 py-2.5 text-sm font-semibold rounded-t-lg border-b-2 transition ${
+                className={`px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-t-lg border-b-2 transition whitespace-nowrap ${
                   activeTab === id
                     ? 'border-amber-500 text-amber-400 bg-amber-500/5'
                     : 'border-transparent text-slate-500 hover:text-slate-300'
@@ -278,14 +278,14 @@ export default function AdminPage() {
               ))}
             </div>
 
-            <div className="card p-5 mb-6 flex items-center justify-between">
+            <div className="card p-5 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <p className="text-white font-semibold">Ingresos por Boxes</p>
                 <p className="text-amber-400 font-heading font-black text-2xl">S/ {boxStats.revenue.toFixed(2)}</p>
               </div>
               <button
                 onClick={handleResetBoxes}
-                className="px-4 py-2 bg-red-500/15 border border-red-500/40 text-red-400 rounded-lg text-sm hover:bg-red-500/25 transition"
+                className="px-4 py-2 bg-red-500/15 border border-red-500/40 text-red-400 rounded-lg text-sm hover:bg-red-500/25 transition self-start sm:self-auto"
               >
                 🔄 Resetear todos los boxes
               </button>
@@ -293,7 +293,8 @@ export default function AdminPage() {
 
             {/* Box table */}
             <div className="card overflow-hidden">
-              <div className="overflow-x-auto">
+              {/* Desktop table */}
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-white/8">
@@ -342,6 +343,40 @@ export default function AdminPage() {
                     })}
                   </tbody>
                 </table>
+              </div>
+              {/* Mobile cards */}
+              <div className="sm:hidden divide-y divide-white/5">
+                {boxes.map(box => {
+                  const zoneColor = ZONE_COLORS[box.zone].stroke;
+                  const statusColors = STATUS_COLORS[box.status];
+                  return (
+                    <div key={box.id} className="p-4 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-white text-sm">{box.id}</span>
+                          <span className="text-xs font-bold" style={{ color: zoneColor }}>{ZONE_COLORS[box.zone].label}</span>
+                        </div>
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full border"
+                          style={{ color: statusColors.text, borderColor: statusColors.stroke, background: statusColors.fill }}>
+                          {box.status === 'available' ? 'Disponible' : box.status === 'temp_reserved' ? 'Reservado' : 'Vendido'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs gap-2">
+                        <span className="text-slate-500">Entradas: <span className="text-slate-300">{box.entriesAvailable}/{box.capacity}</span></span>
+                        <span className="text-slate-500 truncate max-w-[160px]">{box.buyers.length > 0 ? box.buyers.map(b => b.name).join(', ') : '—'}</span>
+                      </div>
+                      <select
+                        value={box.status}
+                        onChange={e => handleBoxStatusChange(box.id, e.target.value as BoxStatus)}
+                        className="w-full text-xs bg-white/5 border border-white/10 rounded px-2 py-1.5 text-slate-300 focus:outline-none"
+                      >
+                        <option value="available">Disponible</option>
+                        <option value="temp_reserved">Reservado</option>
+                        <option value="sold">Vendido</option>
+                      </select>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -401,75 +436,136 @@ export default function AdminPage() {
               {promotors.length === 0 ? (
                 <div className="p-8 text-center text-slate-500 text-sm">No hay promotores creados aún</div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-white/5">
-                        {['Nombre', 'DNI', 'Estado', 'Ventas', 'Boxes', 'Ingresos', 'Acciones'].map(h => (
-                          <th key={h} className="text-left text-xs text-slate-500 font-semibold uppercase tracking-wider px-4 py-3">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[...promotors]
-                        .sort((a, b) => {
-                          const ra = promotorSales.filter(s => s.promotorId === a.id).reduce((x, s) => x + s.price, 0);
-                          const rb = promotorSales.filter(s => s.promotorId === b.id).reduce((x, s) => x + s.price, 0);
-                          return rb - ra;
-                        })
-                        .map(p => {
-                          const pSales = promotorSales.filter(s => s.promotorId === p.id);
-                          const st = {
-                            totalSales:   pSales.length,
-                            totalBoxes:   pSales.filter(s => IS_BOX_SALE[s.saleType]).length,
-                            totalRevenue: pSales.reduce((a, s) => a + s.price, 0),
-                          };
-                          return (
-                            <tr
-                              key={p.id}
-                              className={`border-b border-white/[0.03] hover:bg-white/[0.02] cursor-pointer ${selectedPromotorId === p.id ? 'bg-amber-500/5' : ''}`}
-                              onClick={() => setSelectedPromotorId(selectedPromotorId === p.id ? null : p.id)}
-                            >
-                              <td className="px-4 py-3 text-white font-medium">{p.name}</td>
-                              <td className="px-4 py-3 text-slate-400 text-xs">{p.dni}</td>
-                              <td className="px-4 py-3">
-                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
-                                  p.status === 'active'
-                                    ? 'text-green-400 border-green-500/40 bg-green-500/10'
-                                    : 'text-slate-500 border-slate-600/40 bg-slate-700/20'
-                                }`}>
-                                  {p.status === 'active' ? 'Activo' : 'Inactivo'}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-slate-300">{st.totalSales}</td>
-                              <td className="px-4 py-3 text-slate-300">{st.totalBoxes}</td>
-                              <td className="px-4 py-3 text-amber-400 font-bold">S/ {st.totalRevenue}</td>
-                              <td className="px-4 py-3">
-                                <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                                  <button onClick={() => handleEditPromotor(p)}
-                                    className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded border border-white/10 hover:border-white/20 transition">
-                                    Editar
-                                  </button>
-                                  <button onClick={async () => {
-                                    await fetch('/api/promotor/manage', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ action: 'update', id: p.id, data: { status: p.status === 'active' ? 'inactive' : 'active' } }) });
-                                    loadData();
-                                  }}
-                                    className="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded border border-amber-500/30 hover:border-amber-500/60 transition">
-                                    {p.status === 'active' ? 'Desactivar' : 'Activar'}
-                                  </button>
-                                  <button onClick={() => handleDeletePromotor(p.id)}
-                                    className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded border border-red-500/30 hover:border-red-500/60 transition">
-                                    Eliminar
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
-                </div>
+                <>
+                  {/* Desktop table */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-white/5">
+                          {['Nombre', 'DNI', 'Estado', 'Ventas', 'Boxes', 'Ingresos', 'Acciones'].map(h => (
+                            <th key={h} className="text-left text-xs text-slate-500 font-semibold uppercase tracking-wider px-4 py-3">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...promotors]
+                          .sort((a, b) => {
+                            const ra = promotorSales.filter(s => s.promotorId === a.id).reduce((x, s) => x + s.price, 0);
+                            const rb = promotorSales.filter(s => s.promotorId === b.id).reduce((x, s) => x + s.price, 0);
+                            return rb - ra;
+                          })
+                          .map(p => {
+                            const pSales = promotorSales.filter(s => s.promotorId === p.id);
+                            const st = {
+                              totalSales:   pSales.length,
+                              totalBoxes:   pSales.filter(s => IS_BOX_SALE[s.saleType]).length,
+                              totalRevenue: pSales.reduce((a, s) => a + s.price, 0),
+                            };
+                            return (
+                              <tr
+                                key={p.id}
+                                className={`border-b border-white/[0.03] hover:bg-white/[0.02] cursor-pointer ${selectedPromotorId === p.id ? 'bg-amber-500/5' : ''}`}
+                                onClick={() => setSelectedPromotorId(selectedPromotorId === p.id ? null : p.id)}
+                              >
+                                <td className="px-4 py-3 text-white font-medium">{p.name}</td>
+                                <td className="px-4 py-3 text-slate-400 text-xs">{p.dni}</td>
+                                <td className="px-4 py-3">
+                                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
+                                    p.status === 'active'
+                                      ? 'text-green-400 border-green-500/40 bg-green-500/10'
+                                      : 'text-slate-500 border-slate-600/40 bg-slate-700/20'
+                                  }`}>
+                                    {p.status === 'active' ? 'Activo' : 'Inactivo'}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-slate-300">{st.totalSales}</td>
+                                <td className="px-4 py-3 text-slate-300">{st.totalBoxes}</td>
+                                <td className="px-4 py-3 text-amber-400 font-bold">S/ {st.totalRevenue}</td>
+                                <td className="px-4 py-3">
+                                  <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                                    <button onClick={() => handleEditPromotor(p)}
+                                      className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded border border-white/10 hover:border-white/20 transition">
+                                      Editar
+                                    </button>
+                                    <button onClick={async () => {
+                                      await fetch('/api/promotor/manage', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ action: 'update', id: p.id, data: { status: p.status === 'active' ? 'inactive' : 'active' } }) });
+                                      loadData();
+                                    }}
+                                      className="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded border border-amber-500/30 hover:border-amber-500/60 transition">
+                                      {p.status === 'active' ? 'Desactivar' : 'Activar'}
+                                    </button>
+                                    <button onClick={() => handleDeletePromotor(p.id)}
+                                      className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded border border-red-500/30 hover:border-red-500/60 transition">
+                                      Eliminar
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {/* Mobile cards */}
+                  <div className="sm:hidden divide-y divide-white/[0.03]">
+                    {[...promotors]
+                      .sort((a, b) => {
+                        const ra = promotorSales.filter(s => s.promotorId === a.id).reduce((x, s) => x + s.price, 0);
+                        const rb = promotorSales.filter(s => s.promotorId === b.id).reduce((x, s) => x + s.price, 0);
+                        return rb - ra;
+                      })
+                      .map(p => {
+                        const pSales = promotorSales.filter(s => s.promotorId === p.id);
+                        const st = {
+                          totalSales:   pSales.length,
+                          totalBoxes:   pSales.filter(s => IS_BOX_SALE[s.saleType]).length,
+                          totalRevenue: pSales.reduce((a, s) => a + s.price, 0),
+                        };
+                        return (
+                          <div key={p.id}
+                            className={`p-4 cursor-pointer hover:bg-white/[0.02] ${selectedPromotorId === p.id ? 'bg-amber-500/5' : ''}`}
+                            onClick={() => setSelectedPromotorId(selectedPromotorId === p.id ? null : p.id)}
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div>
+                                <p className="text-white font-medium">{p.name}</p>
+                                <p className="text-slate-500 text-xs mt-0.5">DNI: {p.dni}</p>
+                              </div>
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full border shrink-0 ${
+                                p.status === 'active'
+                                  ? 'text-green-400 border-green-500/40 bg-green-500/10'
+                                  : 'text-slate-500 border-slate-600/40 bg-slate-700/20'
+                              }`}>
+                                {p.status === 'active' ? 'Activo' : 'Inactivo'}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-400 mb-3">
+                              {st.totalSales} ventas · {st.totalBoxes} boxes · <span className="text-amber-400 font-bold">S/ {st.totalRevenue}</span>
+                            </p>
+                            <div className="flex gap-2 flex-wrap" onClick={e => e.stopPropagation()}>
+                              <button onClick={() => handleEditPromotor(p)}
+                                className="text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded border border-white/10 hover:border-white/20 transition">
+                                Editar
+                              </button>
+                              <button onClick={async () => {
+                                await fetch('/api/promotor/manage', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ action: 'update', id: p.id, data: { status: p.status === 'active' ? 'inactive' : 'active' } }) });
+                                loadData();
+                              }}
+                                className="text-xs text-amber-400 hover:text-amber-300 px-3 py-1.5 rounded border border-amber-500/30 hover:border-amber-500/60 transition">
+                                {p.status === 'active' ? 'Desactivar' : 'Activar'}
+                              </button>
+                              <button onClick={() => handleDeletePromotor(p.id)}
+                                className="text-xs text-red-400 hover:text-red-300 px-3 py-1.5 rounded border border-red-500/30 hover:border-red-500/60 transition">
+                                Eliminar
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </>
               )}
             </div>
 
@@ -489,69 +585,121 @@ export default function AdminPage() {
                   {sales.length === 0 ? (
                     <div className="p-6 text-center text-slate-500 text-sm">Este promotor no tiene ventas registradas</div>
                   ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-white/5">
-                            {['Fecha', 'Cliente', 'Email', 'Tipo', 'Box', 'Monto', 'Estado', 'Acciones'].map(h => (
-                              <th key={h} className="text-left text-xs text-slate-500 font-semibold uppercase tracking-wider px-4 py-3">{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {sales.map(sale => {
-                            const isPending = (sale.status ?? 'pending') === 'pending';
-                            return (
-                            <tr key={sale.id} className={`border-b border-white/[0.03] hover:bg-white/[0.02] ${isPending ? 'bg-amber-500/[0.02]' : ''}`}>
-                              <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{fmtDate(sale.createdAt)}</td>
-                              <td className="px-4 py-3 text-white font-medium">
-                                <p>{sale.clientName}</p>
-                                <p className="text-slate-500 text-xs">{sale.clientDni}</p>
-                              </td>
-                              <td className="px-4 py-3 text-slate-400 text-xs">{sale.clientEmail || '—'}</td>
-                              <td className="px-4 py-3">
-                                <span className="text-xs bg-white/[0.04] border border-white/8 rounded-full px-2 py-0.5 text-slate-300">
+                    <>
+                      {/* Desktop table */}
+                      <div className="hidden sm:block overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-white/5">
+                              {['Fecha', 'Cliente', 'Email', 'Tipo', 'Box', 'Monto', 'Estado', 'Acciones'].map(h => (
+                                <th key={h} className="text-left text-xs text-slate-500 font-semibold uppercase tracking-wider px-4 py-3">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sales.map(sale => {
+                              const isPending = (sale.status ?? 'pending') === 'pending';
+                              return (
+                              <tr key={sale.id} className={`border-b border-white/[0.03] hover:bg-white/[0.02] ${isPending ? 'bg-amber-500/[0.02]' : ''}`}>
+                                <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{fmtDate(sale.createdAt)}</td>
+                                <td className="px-4 py-3 text-white font-medium">
+                                  <p>{sale.clientName}</p>
+                                  <p className="text-slate-500 text-xs">{sale.clientDni}</p>
+                                </td>
+                                <td className="px-4 py-3 text-slate-400 text-xs">{sale.clientEmail || '—'}</td>
+                                <td className="px-4 py-3">
+                                  <span className="text-xs bg-white/[0.04] border border-white/8 rounded-full px-2 py-0.5 text-slate-300">
+                                    {SALE_TYPE_LABELS[sale.saleType]}
+                                  </span>
+                                  {sale.boxId && <p className="text-slate-600 text-xs mt-0.5 font-mono">{sale.boxId}</p>}
+                                </td>
+                                <td className="px-4 py-3 text-amber-400 font-bold">S/ {sale.price}</td>
+                                <td className="px-4 py-3">
+                                  {isPending ? (
+                                    <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-0.5">
+                                      🕐 Pendiente
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs font-bold text-green-400 bg-green-500/10 border border-green-500/30 rounded-full px-2 py-0.5">
+                                      ✓ Confirmado
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex gap-2 flex-wrap">
+                                    {isPending && (
+                                      <button
+                                        onClick={() => handleConfirmSale(sale)}
+                                        disabled={confirmingId === sale.id}
+                                        className="text-xs text-green-400 hover:text-green-300 px-2 py-1 rounded border border-green-500/40 hover:border-green-500/70 transition disabled:opacity-50 whitespace-nowrap"
+                                      >
+                                        {confirmingId === sale.id ? '...' : '✓ Confirmar pago'}
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => handleDeleteSale(sale.id, sale.boxId)}
+                                      className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded border border-red-500/30 hover:border-red-500/60 transition"
+                                    >
+                                      Eliminar
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      {/* Mobile cards */}
+                      <div className="sm:hidden divide-y divide-white/[0.03]">
+                        {sales.map(sale => {
+                          const isPending = (sale.status ?? 'pending') === 'pending';
+                          return (
+                            <div key={sale.id} className={`p-4 space-y-2 ${isPending ? 'bg-amber-500/[0.02]' : ''}`}>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-white font-medium truncate">{sale.clientName}</p>
+                                  <p className="text-slate-500 text-xs">{sale.clientDni}</p>
+                                </div>
+                                <p className="text-amber-400 font-bold shrink-0">S/ {sale.price}</p>
+                              </div>
+                              <p className="text-slate-500 text-xs truncate">{sale.clientEmail || '—'}</p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs bg-white/[0.04] border border-white/[0.08] rounded-full px-2 py-0.5 text-slate-300">
                                   {SALE_TYPE_LABELS[sale.saleType]}
+                                  {sale.boxId && <span className="text-slate-600 ml-1 font-mono">{sale.boxId}</span>}
                                 </span>
-                                {sale.boxId && <p className="text-slate-600 text-xs mt-0.5 font-mono">{sale.boxId}</p>}
-                              </td>
-                              <td className="px-4 py-3 text-amber-400 font-bold">S/ {sale.price}</td>
-                              <td className="px-4 py-3">
                                 {isPending ? (
-                                  <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-0.5">
-                                    🕐 Pendiente
-                                  </span>
+                                  <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-0.5">🕐 Pendiente</span>
                                 ) : (
-                                  <span className="text-xs font-bold text-green-400 bg-green-500/10 border border-green-500/30 rounded-full px-2 py-0.5">
-                                    ✓ Confirmado
-                                  </span>
+                                  <span className="text-xs font-bold text-green-400 bg-green-500/10 border border-green-500/30 rounded-full px-2 py-0.5">✓ Confirmado</span>
                                 )}
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="flex gap-2 flex-wrap">
+                              </div>
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <p className="text-slate-600 text-xs">{fmtDate(sale.createdAt)}</p>
+                                <div className="flex gap-2">
                                   {isPending && (
                                     <button
                                       onClick={() => handleConfirmSale(sale)}
                                       disabled={confirmingId === sale.id}
-                                      className="text-xs text-green-400 hover:text-green-300 px-2 py-1 rounded border border-green-500/40 hover:border-green-500/70 transition disabled:opacity-50 whitespace-nowrap"
+                                      className="text-xs text-green-400 hover:text-green-300 px-3 py-1.5 rounded border border-green-500/40 hover:border-green-500/70 transition disabled:opacity-50"
                                     >
-                                      {confirmingId === sale.id ? '...' : '✓ Confirmar pago'}
+                                      {confirmingId === sale.id ? '...' : '✓ Confirmar'}
                                     </button>
                                   )}
                                   <button
                                     onClick={() => handleDeleteSale(sale.id, sale.boxId)}
-                                    className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded border border-red-500/30 hover:border-red-500/60 transition"
+                                    className="text-xs text-red-400 hover:text-red-300 px-3 py-1.5 rounded border border-red-500/30 hover:border-red-500/60 transition"
                                   >
                                     Eliminar
                                   </button>
                                 </div>
-                              </td>
-                            </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
                   )}
                 </div>
               );
@@ -710,81 +858,119 @@ export default function AdminPage() {
               <p>No hay órdenes {searchTerm && 'que coincidan con la búsqueda'}</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-600">
-                    <th className="text-left p-3 text-tropical-sunset">Orden</th>
-                    <th className="text-left p-3 text-tropical-sunset">Comprador</th>
-                    <th className="text-left p-3 text-tropical-sunset">DNI</th>
-                    <th className="text-left p-3 text-tropical-sunset">Tipo</th>
-                    <th className="text-center p-3 text-tropical-sunset">Cant.</th>
-                    <th className="text-right p-3 text-tropical-sunset">Total</th>
-                    <th className="text-center p-3 text-tropical-sunset">Estado</th>
-                    <th className="text-center p-3 text-tropical-sunset">Acción</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTickets.map((ticket) => (
-                    <tr key={ticket.id} className="border-b border-gray-700/50 hover:bg-white/5">
-                      <td className="p-3">
-                        <div className="font-mono text-xs text-tropical-teal">
-                          #{ticket.id.substring(0, 8)}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {new Date(ticket.purchaseDate).toLocaleDateString('es-PE')}
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        <div className="font-semibold">{ticket.buyerName}</div>
-                        <div className="text-xs text-gray-400">{ticket.buyerEmail}</div>
-                      </td>
-                      <td className="p-3 text-sm">{ticket.buyerDNI}</td>
-                      <td className="p-3">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+            <>
+              {/* Desktop table */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-600">
+                      <th className="text-left p-3 text-tropical-sunset">Orden</th>
+                      <th className="text-left p-3 text-tropical-sunset">Comprador</th>
+                      <th className="text-left p-3 text-tropical-sunset">DNI</th>
+                      <th className="text-left p-3 text-tropical-sunset">Tipo</th>
+                      <th className="text-center p-3 text-tropical-sunset">Cant.</th>
+                      <th className="text-right p-3 text-tropical-sunset">Total</th>
+                      <th className="text-center p-3 text-tropical-sunset">Estado</th>
+                      <th className="text-center p-3 text-tropical-sunset">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTickets.map((ticket) => (
+                      <tr key={ticket.id} className="border-b border-gray-700/50 hover:bg-white/5">
+                        <td className="p-3">
+                          <div className="font-mono text-xs text-tropical-teal">
+                            #{ticket.id.substring(0, 8)}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {new Date(ticket.purchaseDate).toLocaleDateString('es-PE')}
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <div className="font-semibold">{ticket.buyerName}</div>
+                          <div className="text-xs text-gray-400">{ticket.buyerEmail}</div>
+                        </td>
+                        <td className="p-3 text-sm">{ticket.buyerDNI}</td>
+                        <td className="p-3">
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                            ticket.ticketType === 'general' ? 'bg-tropical-palm/20 text-tropical-palm' :
+                            ticket.ticketType === 'vip' ? 'bg-tropical-coral/20 text-tropical-coral' :
+                            'bg-tropical-sunset/20 text-tropical-sunset'
+                          }`}>
+                            {ticket.ticketType}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center font-bold">{ticket.quantity}</td>
+                        <td className="p-3 text-right font-bold text-tropical-sunset">
+                          S/ {ticket.totalPrice.toFixed(2)}
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={`text-xs font-semibold ${
+                            ticket.validated ? 'text-tropical-palm' : 'text-gray-500'
+                          }`}>
+                            {ticket.validated ? '✓ Validada' : '○ Pendiente'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center">
+                          <Link
+                            href={`/ticket/${ticket.id}`}
+                            className="text-tropical-teal hover:underline text-sm"
+                          >
+                            Ver
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* Mobile cards */}
+              <div className="sm:hidden divide-y divide-gray-700/50">
+                {filteredTickets.map((ticket) => (
+                  <div key={ticket.id} className="p-4 space-y-2 hover:bg-white/[0.02]">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-white">{ticket.buyerName}</p>
+                        <p className="text-xs text-gray-400">{ticket.buyerEmail}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">DNI: {ticket.buyerDNI}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-bold text-tropical-sunset">S/ {ticket.totalPrice.toFixed(2)}</p>
+                        <p className="text-xs text-gray-500">{new Date(ticket.purchaseDate).toLocaleDateString('es-PE')}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase ${
                           ticket.ticketType === 'general' ? 'bg-tropical-palm/20 text-tropical-palm' :
                           ticket.ticketType === 'vip' ? 'bg-tropical-coral/20 text-tropical-coral' :
                           'bg-tropical-sunset/20 text-tropical-sunset'
                         }`}>
                           {ticket.ticketType}
                         </span>
-                      </td>
-                      <td className="p-3 text-center font-bold">{ticket.quantity}</td>
-                      <td className="p-3 text-right font-bold text-tropical-sunset">
-                        S/ {ticket.totalPrice.toFixed(2)}
-                      </td>
-                      <td className="p-3 text-center">
-                        <span className={`text-xs font-semibold ${
-                          ticket.validated ? 'text-tropical-palm' : 'text-gray-500'
-                        }`}>
+                        <span className="text-xs text-gray-400">× {ticket.quantity}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs font-semibold ${ticket.validated ? 'text-tropical-palm' : 'text-gray-500'}`}>
                           {ticket.validated ? '✓ Validada' : '○ Pendiente'}
                         </span>
-                      </td>
-                      <td className="p-3 text-center">
-                        <Link
-                          href={`/ticket/${ticket.id}`}
-                          className="text-tropical-teal hover:underline text-sm"
-                        >
-                          Ver
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        <Link href={`/ticket/${ticket.id}`} className="text-tropical-teal hover:underline text-xs">Ver</Link>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
 
         {/* ── QR Validados (Redis) ── */}
         <div className="mt-10">
-          <div className="flex items-center justify-between mb-4">
-            <div>
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="min-w-0">
               <h2 className="text-white font-bold text-lg">🔍 QR Validados en Puerta</h2>
               <p className="text-slate-500 text-xs mt-0.5">Registros en tiempo real desde Redis</p>
             </div>
-            <div className="flex items-center gap-3">
-              {/* Counter badge */}
+            <div className="flex items-center gap-3 shrink-0">
               <div className="bg-emerald-500/15 border border-emerald-500/30 rounded-xl px-4 py-2 text-center">
                 <p className="text-emerald-400 font-black text-2xl leading-none">{qrEntries.length}</p>
                 <p className="text-emerald-600 text-[10px] uppercase tracking-wider mt-0.5">validados</p>
@@ -807,7 +993,8 @@ export default function AdminPage() {
             </div>
           ) : (
             <div className="card overflow-hidden">
-              <div className="overflow-x-auto">
+              {/* Desktop table */}
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-white/8">
@@ -847,6 +1034,32 @@ export default function AdminPage() {
                     })}
                   </tbody>
                 </table>
+              </div>
+              {/* Mobile cards */}
+              <div className="sm:hidden divide-y divide-white/5">
+                {qrEntries.map((e, i) => {
+                  const zoneColors: Record<string, string> = { platinum: '#FACC15', vip: '#a855f7', malecon: '#0ea5e9', general: '#3b82f6' };
+                  const zoneLabels: Record<string, string> = { platinum: 'PLATINUM', vip: 'VIP', malecon: 'MALECÓN', general: 'GENERAL' };
+                  const pulseras = e.type === 'box' ? 10 : e.qty;
+                  return (
+                    <div key={i} className="p-4 hover:bg-emerald-500/[0.03]">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <p className="text-white font-semibold">{e.name}</p>
+                        <span className="text-xs font-bold shrink-0" style={{ color: zoneColors[e.zone] ?? '#94a3b8' }}>
+                          {zoneLabels[e.zone] ?? e.zone.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-400">
+                          {new Date(e.at).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                          {' · '}{e.type === 'box' ? 'Box completo' : 'Individual'}
+                          {' · '}<span className="text-emerald-400 font-bold">{pulseras} pulseras</span>
+                        </span>
+                        <span className="text-slate-600 font-mono">{e.orderId.slice(-8).toUpperCase()}</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

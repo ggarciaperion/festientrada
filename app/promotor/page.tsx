@@ -184,7 +184,7 @@ function SalePanel({
   // ── IDLE
   if (mode === 'idle') {
     return (
-      <div className="h-full flex flex-col justify-center gap-3 px-2">
+      <div className="flex flex-col gap-3 py-4">
         <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Registrar venta</p>
         <button onClick={() => onModeChange('selecting_box')}
           className="w-full text-left p-4 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-amber-500/10 hover:border-amber-500/30 transition group">
@@ -208,7 +208,7 @@ function SalePanel({
   // ── SELECTING BOX
   if (mode === 'selecting_box') {
     return (
-      <div className="h-full flex flex-col justify-center items-center gap-4 px-2 text-center">
+      <div className="flex flex-col items-center gap-4 py-8 text-center">
         <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-2xl">👆</div>
         <div>
           <p className="font-bold text-white text-sm">Haz click en un box disponible</p>
@@ -224,7 +224,7 @@ function SalePanel({
   // ── SUCCESS
   if (mode === 'success') {
     return (
-      <div className="h-full flex flex-col justify-center items-center gap-3 px-2 text-center">
+      <div className="flex flex-col items-center gap-3 py-8 text-center">
         <div className="w-14 h-14 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
           <IconCheck />
         </div>
@@ -240,7 +240,7 @@ function SalePanel({
   const isIndividual = mode === 'individual_form';
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col">
       <div className="flex items-center gap-2 mb-4">
         <button onClick={handleReset} className="text-slate-500 hover:text-slate-300 transition"><IconBack /></button>
         <p className="font-bold text-white text-sm">
@@ -249,7 +249,7 @@ function SalePanel({
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+      <div className="space-y-3">
         {isBoxMode && selectedBox && (
           <div className="rounded-xl p-3 border" style={{
             background: `${ZONE_COLORS[selectedBox.zone].stroke}11`,
@@ -394,35 +394,51 @@ function PromotorPanel({ promotor, onLogout }: { promotor: Promotor; onLogout: (
   return (
     <div className="min-h-screen bg-[#09090F] flex flex-col">
       <header className="bg-[#09090F]/90 border-b border-white/5 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-amber-500/15 border border-amber-500/20 flex items-center justify-center">
-              <IconUser />
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
+          {/* Main row */}
+          <div className="h-14 flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-amber-500/15 border border-amber-500/20 flex items-center justify-center shrink-0">
+                <IconUser />
+              </div>
+              <div className="min-w-0">
+                <p className="font-heading font-bold text-white text-sm leading-none truncate">{promotor.name}</p>
+                <p className="text-slate-600 text-xs mt-0.5 hidden sm:block">Promotor · DNI {promotor.dni}</p>
+              </div>
             </div>
-            <div>
-              <p className="font-heading font-bold text-white text-sm leading-none">{promotor.name}</p>
-              <p className="text-slate-600 text-xs mt-0.5">Promotor · DNI {promotor.dni}</p>
+            <div className="flex items-center gap-3">
+              {/* Desktop tabs */}
+              <div className="hidden md:flex items-center gap-4">
+                {tabs.map(t => (
+                  <button key={t.id} onClick={() => setTab(t.id)}
+                    className={`flex items-center gap-1.5 text-sm font-semibold transition pb-0.5
+                      ${tab === t.id ? 'text-amber-400 border-b-2 border-amber-400' : 'text-slate-500 hover:text-slate-300 border-b-2 border-transparent'}`}>
+                    {t.icon} {t.label}
+                  </button>
+                ))}
+                <div className="h-4 w-px bg-white/10" />
+              </div>
+              <button onClick={onLogout} className="flex items-center gap-1.5 text-slate-500 hover:text-white transition text-sm">
+                <IconLogout /> <span className="hidden sm:inline">Salir</span>
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          {/* Mobile tabs row */}
+          <div className="md:hidden flex border-t border-white/5">
             {tabs.map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
-                className={`flex items-center gap-1.5 text-sm font-semibold transition pb-0.5
-                  ${tab === t.id ? 'text-amber-400 border-b-2 border-amber-400' : 'text-slate-500 hover:text-slate-300 border-b-2 border-transparent'}`}>
+                className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-2.5 border-b-2 transition
+                  ${tab === t.id ? 'text-amber-400 border-amber-400' : 'text-slate-500 border-transparent'}`}>
                 {t.icon} {t.label}
               </button>
             ))}
-            <div className="h-4 w-px bg-white/10" />
-            <button onClick={onLogout} className="flex items-center gap-1.5 text-slate-500 hover:text-white transition text-sm">
-              <IconLogout /> Salir
-            </button>
           </div>
         </div>
       </header>
 
       {tab === 'boxes' && (
-        <div className="flex flex-1 overflow-hidden" style={{ height: 'calc(100vh - 56px)' }}>
-          <div className="flex-1 min-w-0 overflow-y-auto p-4 flex flex-col gap-3">
+        <div className="flex flex-col md:flex-row md:flex-1 md:overflow-hidden md:h-[calc(100vh-56px)]">
+          <div className="flex-1 min-w-0 md:overflow-y-auto p-4 flex flex-col gap-3">
             <div className="flex flex-wrap gap-4 justify-center">
               {(Object.entries(STATUS_COLORS) as [BoxStatus, typeof STATUS_COLORS[BoxStatus]][]).map(([s, c]) => (
                 <div key={s} className="flex items-center gap-1.5">
@@ -466,8 +482,7 @@ function PromotorPanel({ promotor, onLogout }: { promotor: Promotor; onLogout: (
               </div>
             )}
           </div>
-          <div className="shrink-0 border-l border-white/5 bg-white/[0.015] flex flex-col overflow-y-auto"
-            style={{ width: '320px', minWidth: '280px', maxWidth: '340px', padding: '20px 16px' }}>
+          <div className="md:shrink-0 border-t md:border-t-0 md:border-l border-white/5 bg-white/[0.015] flex flex-col md:overflow-y-auto md:w-80 p-5">
             <SalePanel promotor={promotor} boxes={boxes} mode={panelMode} selectedBox={selectedBox}
               onModeChange={setPanelMode}
               onBoxSelected={(box) => { setSelectedBox(box); if (!box) setInfoBox(null); }}
@@ -491,43 +506,72 @@ function PromotorPanel({ promotor, onLogout }: { promotor: Promotor; onLogout: (
             {sales.length === 0 ? (
               <div className="p-8 text-center text-slate-500 text-sm">No tienes ventas registradas aún</div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-white/5">
-                      {['Fecha', 'Cliente', 'Email', 'Tipo', 'Monto', 'Estado'].map(h => (
-                        <th key={h} className="text-left text-xs text-slate-500 font-semibold uppercase tracking-wider px-4 py-3">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sales.map(sale => (
-                      <tr key={sale.id} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
-                        <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{fmtDate(sale.createdAt)}</td>
-                        <td className="px-4 py-3 text-white font-medium">
-                          <p>{sale.clientName}</p>
-                          <p className="text-slate-500 text-xs">{sale.clientDni}</p>
-                        </td>
-                        <td className="px-4 py-3 text-slate-400 text-xs">{sale.clientEmail || '—'}</td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs bg-white/[0.04] border border-white/8 rounded-full px-2 py-0.5 text-slate-300">
-                            {SALE_TYPE_LABELS[sale.saleType]}
-                          </span>
-                          {sale.boxId && <p className="text-slate-600 text-xs mt-0.5 font-mono">{sale.boxId}</p>}
-                        </td>
-                        <td className="px-4 py-3 text-amber-400 font-bold">S/ {sale.price}</td>
-                        <td className="px-4 py-3">
-                          {(sale.status ?? 'pending') === 'confirmed' ? (
-                            <span className="text-xs font-bold text-green-400 bg-green-500/10 border border-green-500/30 rounded-full px-2 py-0.5">✓ Confirmado</span>
-                          ) : (
-                            <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-0.5">Pendiente</span>
-                          )}
-                        </td>
+              <>
+                {/* Desktop table */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/5">
+                        {['Fecha', 'Cliente', 'Email', 'Tipo', 'Monto', 'Estado'].map(h => (
+                          <th key={h} className="text-left text-xs text-slate-500 font-semibold uppercase tracking-wider px-4 py-3">{h}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {sales.map(sale => (
+                        <tr key={sale.id} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
+                          <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{fmtDate(sale.createdAt)}</td>
+                          <td className="px-4 py-3 text-white font-medium">
+                            <p>{sale.clientName}</p>
+                            <p className="text-slate-500 text-xs">{sale.clientDni}</p>
+                          </td>
+                          <td className="px-4 py-3 text-slate-400 text-xs">{sale.clientEmail || '—'}</td>
+                          <td className="px-4 py-3">
+                            <span className="text-xs bg-white/[0.04] border border-white/8 rounded-full px-2 py-0.5 text-slate-300">
+                              {SALE_TYPE_LABELS[sale.saleType]}
+                            </span>
+                            {sale.boxId && <p className="text-slate-600 text-xs mt-0.5 font-mono">{sale.boxId}</p>}
+                          </td>
+                          <td className="px-4 py-3 text-amber-400 font-bold">S/ {sale.price}</td>
+                          <td className="px-4 py-3">
+                            {(sale.status ?? 'pending') === 'confirmed' ? (
+                              <span className="text-xs font-bold text-green-400 bg-green-500/10 border border-green-500/30 rounded-full px-2 py-0.5">✓ Confirmado</span>
+                            ) : (
+                              <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-0.5">Pendiente</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Mobile cards */}
+                <div className="sm:hidden divide-y divide-white/5">
+                  {sales.map(sale => (
+                    <div key={sale.id} className="p-4 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-white font-medium text-sm truncate">{sale.clientName}</p>
+                          <p className="text-slate-500 text-xs">{sale.clientDni}</p>
+                        </div>
+                        <p className="text-amber-400 font-bold shrink-0">S/ {sale.price}</p>
+                      </div>
+                      <p className="text-slate-500 text-xs truncate">{sale.clientEmail || '—'}</p>
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-xs bg-white/[0.04] border border-white/[0.08] rounded-full px-2 py-0.5 text-slate-300">
+                          {SALE_TYPE_LABELS[sale.saleType]}{sale.boxId && <span className="text-slate-600 ml-1 font-mono">{sale.boxId}</span>}
+                        </span>
+                        {(sale.status ?? 'pending') === 'confirmed' ? (
+                          <span className="text-xs font-bold text-green-400 bg-green-500/10 border border-green-500/30 rounded-full px-2 py-0.5">✓ Confirmado</span>
+                        ) : (
+                          <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-0.5">Pendiente</span>
+                        )}
+                      </div>
+                      <p className="text-slate-600 text-xs">{fmtDate(sale.createdAt)}</p>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </div>
