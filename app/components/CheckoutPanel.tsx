@@ -1,12 +1,17 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { ICardPaymentFormData, ICardPaymentBrickPayer } from '@mercadopago/sdk-react/esm/bricks/cardPayment/type';
 
-// Load CardPayment only on the client (ssr: false prevents server-side execution)
+// initMercadoPago + CardPayment loaded in the SAME import context (same bundle chunk)
+// so the initialized MP instance is shared with the brick that renders it.
+// ssr:false ensures this never runs on the server.
 const MPCardPayment = dynamic(
-  () => import('@mercadopago/sdk-react').then((m) => m.CardPayment),
+  () => import('@mercadopago/sdk-react').then((m) => {
+    m.initMercadoPago(process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ?? '', { locale: 'es-PE' });
+    return { default: m.CardPayment };
+  }),
   { ssr: false }
 );
 
@@ -51,19 +56,10 @@ export default function CheckoutPanel({
   onSuccess,
   onCancel,
 }: CheckoutPanelProps) {
-  const [mpReady,  setMpReady]  = useState(false);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState('');
   const onSuccessRef = useRef(onSuccess);
   onSuccessRef.current = onSuccess;
-
-  // Initialize MP only on the client (useEffect never runs on the server)
-  useEffect(() => {
-    import('@mercadopago/sdk-react').then(({ initMercadoPago }) => {
-      initMercadoPago(process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ?? '', { locale: 'es-PE' });
-      setMpReady(true);
-    });
-  }, []);
 
   // Stable initialization — prevents brick recreation on re-renders
   const initialization = useMemo(() => ({
@@ -121,14 +117,18 @@ export default function CheckoutPanel({
         <p className="font-heading font-black text-2xl text-amber-400">S/ {amount}</p>
       </div>
 
-      {/* MP Card Payment Brick — only rendered after client-side init */}
-      {mpReady && <MPCardPayment
+      {/* MP Card Payment Brick */}
+      <MPCardPayment
         initialization={initialization}
         customization={customization}
         onSubmit={handleSubmit}
         onReady={() => setLoading(false)}
-        onError={(err) => console.error('MP Brick error:', err)}
-      />}
+        onError={(err) => {
+          console.error('MP Brick error:', err);
+          setLoading(false);
+          setError('Error al cargar el formulario de pago. Intenta recargar la página.');
+        }}
+      />
 
       {/* Loading overlay — shown until onReady fires */}
       {loading && (
