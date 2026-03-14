@@ -5,12 +5,10 @@ import Link from 'next/link';
 import { db, Ticket } from '@/lib/database';
 import { ZONE_COLORS, STATUS_COLORS, type Box, type BoxStatus } from '@/lib/boxes';
 import {
-  promotorService,
   SALE_TYPE_LABELS,
   IS_BOX_SALE,
   type Promotor,
   type Sale,
-  type SaleType,
 } from '@/lib/promotors';
 
 export default function AdminPage() {
@@ -44,9 +42,16 @@ export default function AdminPage() {
   const loadData = async () => {
     setTickets(db.getTickets());
     setStats(db.getStats());
-    setPromotors(promotorService.getPromotors());
-    setPromotorSales(promotorService.getSales());
     loadQREntries();
+    // Load promotors and sales from API (Redis-backed)
+    try {
+      const [promRes, salesRes] = await Promise.all([
+        fetch('/api/promotor/manage').then(r => r.json()),
+        fetch('/api/promotor/sales?all=1').then(r => r.json()),
+      ]);
+      if (promRes.ok && promRes.promotors) setPromotors(promRes.promotors);
+      if (salesRes.ok && salesRes.sales)   setPromotorSales(salesRes.sales);
+    } catch { /* Redis might not be available */ }
     try {
       const res  = await fetch('/api/boxes');
       const data = await res.json() as { ok: boolean; boxes?: Box[] };
@@ -96,17 +101,21 @@ export default function AdminPage() {
   };
 
   // ── Promotor handlers ──────────────────────────────────────
-  const handleCreatePromotor = () => {
+  const handleCreatePromotor = async () => {
     setPFormError('');
     if (!pForm.name || !pForm.dni || !pForm.password) { setPFormError('Completa todos los campos.'); return; }
-    const exists = promotorService.getPromotors().find(p => p.dni === pForm.dni);
-    if (exists && !editingPromotor) { setPFormError('Ya existe un promotor con ese DNI.'); return; }
 
-    if (editingPromotor) {
-      promotorService.updatePromotor(editingPromotor.id, pForm);
-    } else {
-      promotorService.createPromotor(pForm);
-    }
+    const action = editingPromotor ? 'update' : 'create';
+    const body   = editingPromotor
+      ? { action, id: editingPromotor.id, data: pForm }
+      : { action, data: pForm };
+
+    const res  = await fetch('/api/promotor/manage', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    const data = await res.json() as { ok: boolean; error?: string };
+    if (!data.ok) { setPFormError(data.error ?? 'Error al guardar.'); return; }
+
     setPForm({ name: '', dni: '', password: '', status: 'active' });
     setEditingPromotor(null);
     loadData();
@@ -117,9 +126,12 @@ export default function AdminPage() {
     setPForm({ name: p.name, dni: p.dni, password: p.password, status: p.status });
   };
 
-  const handleDeletePromotor = (id: string) => {
+  const handleDeletePromotor = async (id: string) => {
     if (!confirm('¿Eliminar este promotor y todas sus ventas?')) return;
-    promotorService.deletePromotor(id);
+    await fetch('/api/promotor/manage', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', id }),
+    });
     if (selectedPromotorId === id) setSelectedPromotorId(null);
     loadData();
   };
@@ -136,12 +148,7 @@ export default function AdminPage() {
         body:    JSON.stringify({ sale }),
       });
       const data = await res.json() as { ok: boolean; ticketToken?: string; orderId?: string; error?: string };
-      if (data.ok && data.ticketToken) {
-        promotorService.updateSale(sale.id, {
-          status: 'confirmed',
-          ticketToken: data.ticketToken,
-          confirmedAt: new Date().toISOString(),
-        });
+      if (data.ok) {
         loadData();
         alert(`✅ Pago confirmado. QR enviado a ${sale.clientEmail}`);
       } else {
@@ -156,14 +163,16 @@ export default function AdminPage() {
 
   const handleDeleteSale = async (saleId: string, boxId?: string) => {
     if (!confirm('¿Eliminar esta venta?')) return;
-    if (boxId) {
-      await fetch('/api/boxes/admin', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+    await Promise.all([
+      boxId ? fetch('/api/boxes/admin', {
+        method:  'POST', headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ action: 'set-available', boxId }),
-      });
-    }
-    promotorService.deleteSale(saleId);
+      }) : Promise.resolve(),
+      fetch('/api/promotor/sales', {
+        method:  'DELETE', headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ id: saleId }),
+      }),
+    ]);
     loadData();
   };
 
@@ -404,12 +413,17 @@ export default function AdminPage() {
                     <tbody>
                       {[...promotors]
                         .sort((a, b) => {
-                          const ra = promotorService.getStats(a.id).totalRevenue;
-                          const rb = promotorService.getStats(b.id).totalRevenue;
+                          const ra = promotorSales.filter(s => s.promotorId === a.id).reduce((x, s) => x + s.price, 0);
+                          const rb = promotorSales.filter(s => s.promotorId === b.id).reduce((x, s) => x + s.price, 0);
                           return rb - ra;
                         })
                         .map(p => {
-                          const st = promotorService.getStats(p.id);
+                          const pSales = promotorSales.filter(s => s.promotorId === p.id);
+                          const st = {
+                            totalSales:   pSales.length,
+                            totalBoxes:   pSales.filter(s => IS_BOX_SALE[s.saleType]).length,
+                            totalRevenue: pSales.reduce((a, s) => a + s.price, 0),
+                          };
                           return (
                             <tr
                               key={p.id}
@@ -436,7 +450,11 @@ export default function AdminPage() {
                                     className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded border border-white/10 hover:border-white/20 transition">
                                     Editar
                                   </button>
-                                  <button onClick={() => { promotorService.updatePromotor(p.id, { status: p.status === 'active' ? 'inactive' : 'active' }); loadData(); }}
+                                  <button onClick={async () => {
+                                    await fetch('/api/promotor/manage', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ action: 'update', id: p.id, data: { status: p.status === 'active' ? 'inactive' : 'active' } }) });
+                                    loadData();
+                                  }}
                                     className="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded border border-amber-500/30 hover:border-amber-500/60 transition">
                                     {p.status === 'active' ? 'Desactivar' : 'Activar'}
                                   </button>

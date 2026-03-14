@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateTicketToken } from '@/lib/tickets';
 import { sendConfirmationEmail } from '@/lib/email';
+import { updateSale } from '@/lib/promotors-kv';
 import type { SaleType } from '@/lib/promotors';
 
 // POST /api/promotor/confirm-sale
@@ -52,7 +53,18 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     console.error('Error sending email:', e);
-    // Don't fail the request — token is generated, email can be resent
+    // Don't fail the request — token is generated, email can be resent manually
+  }
+
+  // Update sale status in Redis
+  try {
+    await updateSale(sale.id, {
+      status:      'confirmed',
+      ticketToken,
+      confirmedAt: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error('Error updating sale in Redis:', e);
   }
 
   return NextResponse.json({ ok: true, ticketToken, orderId });
