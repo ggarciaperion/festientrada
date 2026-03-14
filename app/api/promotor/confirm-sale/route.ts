@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateTicketToken } from '@/lib/tickets';
 import { sendConfirmationEmail } from '@/lib/email';
 import { updateSale } from '@/lib/promotors-kv';
+import { kvGet, kvSet, kvDel } from '@/lib/kv';
 import type { SaleType } from '@/lib/promotors';
 
 // POST /api/promotor/confirm-sale
@@ -65,6 +66,22 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     console.error('Error updating sale in Redis:', e);
+  }
+
+  // If box sale: promote box:prom → box:sold (pending → confirmed)
+  if (sale.boxId) {
+    const SOLD_TTL = 120 * 24 * 60 * 60;
+    try {
+      const promData = await kvGet(`box:prom:${sale.boxId}`);
+      if (promData) {
+        await Promise.all([
+          kvSet(`box:sold:${sale.boxId}`, promData, SOLD_TTL),
+          kvDel(`box:prom:${sale.boxId}`),
+        ]);
+      }
+    } catch (e) {
+      console.error('Error promoting box:prom to box:sold:', e);
+    }
   }
 
   return NextResponse.json({ ok: true, ticketToken, orderId });

@@ -37,13 +37,16 @@ export async function POST(req: NextRequest) {
 
   const { boxId, buyer } = body;
 
-  // 3. Check box is not already sold
-  const existingSold = await kvGet(`box:sold:${boxId}`);
-  if (existingSold) {
+  // 3. Check box is not already sold or pending-promotor
+  const [existingSold, existingProm] = await Promise.all([
+    kvGet(`box:sold:${boxId}`),
+    kvGet(`box:prom:${boxId}`),
+  ]);
+  if (existingSold || existingProm) {
     return NextResponse.json({ ok: false, error: 'Este box ya no está disponible' }, { status: 409 });
   }
 
-  // 4. Atomically claim: SET NX so two concurrent calls can't both succeed
+  // 4. Atomically claim as pending-promotor (SET NX prevents race conditions)
   const boxBuyer: BoxBuyer = {
     buyerId:      Math.random().toString(36).slice(2),
     name:         buyer.name,
@@ -57,7 +60,7 @@ export async function POST(req: NextRequest) {
     promotorId:   promotor.id,
   };
 
-  const claimed = await kvSetNX(`box:sold:${boxId}`, JSON.stringify(boxBuyer), SOLD_TTL);
+  const claimed = await kvSetNX(`box:prom:${boxId}`, JSON.stringify(boxBuyer), SOLD_TTL);
   if (!claimed) {
     return NextResponse.json({ ok: false, error: 'Este box ya no está disponible' }, { status: 409 });
   }

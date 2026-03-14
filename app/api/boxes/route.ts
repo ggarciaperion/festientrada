@@ -17,10 +17,12 @@ export async function GET() {
     const ids      = boxes.map(b => b.id);
     const soldKeys = ids.map(id => `box:sold:${id}`);
     const resKeys  = ids.map(id => `box:res:${id}`);
+    const promKeys = ids.map(id => `box:prom:${id}`);
 
-    const [soldVals, resVals] = await Promise.all([
+    const [soldVals, resVals, promVals] = await Promise.all([
       kvMGet(soldKeys),
       kvMGet(resKeys),
+      kvMGet(promKeys),
     ]);
 
     for (let i = 0; i < boxes.length; i++) {
@@ -28,6 +30,12 @@ export async function GET() {
         boxes[i].status           = 'sold';
         boxes[i].buyers           = [JSON.parse(soldVals[i]!) as BoxBuyer];
         boxes[i].entriesAvailable = 0;
+      } else if (promVals[i]) {
+        // Pending promotor sale — show as reserved until admin confirms payment
+        boxes[i].status              = 'temp_reserved';
+        boxes[i].buyers              = [JSON.parse(promVals[i]!) as BoxBuyer];
+        boxes[i].reservedSessionId   = 'promotor';
+        boxes[i].entriesAvailable    = 0;
       } else if (resVals[i]) {
         boxes[i].status              = 'temp_reserved';
         boxes[i].reservedSessionId   = resVals[i]!;

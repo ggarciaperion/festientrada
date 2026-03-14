@@ -91,32 +91,21 @@ function SalePanel({
   const [clientDni,   setClientDni]   = useState('');
   const [clientName,  setClientName]  = useState('');
   const [clientEmail, setClientEmail] = useState('');
-  const [price,       setPrice]       = useState(0);
   const [entries,     setEntries]     = useState(1);
   const [zone,        setZone]        = useState<BoxZone | 'general'>('platinum');
   const [notes,       setNotes]       = useState('');
   const [error,       setError]       = useState('');
 
-  useEffect(() => {
-    if (mode === 'box_form' && selectedBox) {
-      setZone(selectedBox.zone);
-      setPrice(BOX_PRICES[selectedBox.zone].full);
-    }
-  }, [selectedBox, mode]);
-
-  useEffect(() => {
-    if (mode === 'individual_form') {
-      const prices: Record<BoxZone, number> = {
-        platinum: BOX_PRICES.platinum.individual,
-        vip:      BOX_PRICES.vip.individual,
-        malecon:  BOX_PRICES.malecon.individual,
-      };
-      setPrice(prices[zone as BoxZone] ?? 0);
-    }
-  }, [zone, mode]);
+  // Computed price — never editable
+  const unitPrice = mode === 'box_form' && selectedBox
+    ? BOX_PRICES[selectedBox.zone].full
+    : mode === 'individual_form'
+      ? (BOX_PRICES[zone as BoxZone]?.individual ?? 0)
+      : 0;
+  const price = mode === 'individual_form' ? unitPrice * entries : unitPrice;
 
   const resetForm = () => {
-    setClientDni(''); setClientName(''); setClientEmail(''); setPrice(0);
+    setClientDni(''); setClientName(''); setClientEmail('');
     setEntries(1); setZone('platinum'); setNotes(''); setError('');
   };
 
@@ -128,7 +117,6 @@ function SalePanel({
     if (!clientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
       setError('Ingresa un email válido del cliente.'); return;
     }
-    if (price <= 0) { setError('El precio debe ser mayor a 0.'); return; }
 
     const baseSale = {
       promotorId: promotor.id,
@@ -164,7 +152,7 @@ function SalePanel({
         body: JSON.stringify({
           ...baseSale,
           saleType: `individual_${zone}` as SaleType,
-          zone: zone as BoxZone, price: price * entries,
+          zone: zone as BoxZone,
         }),
       });
       if (!(await saleRes.json()).ok) { setError('Error al registrar la venta.'); return; }
@@ -191,12 +179,12 @@ function SalePanel({
           <p className="font-bold text-white group-hover:text-amber-400 transition text-sm">📦 Venta de Box</p>
           <p className="text-xs text-slate-500 mt-0.5">Selecciona un box en el mapa</p>
         </button>
-        <button onClick={() => { resetForm(); setZone('platinum'); setPrice(BOX_PRICES.platinum.individual); onModeChange('individual_form'); }}
+        <button onClick={() => { resetForm(); setZone('platinum'); onModeChange('individual_form'); }}
           className="w-full text-left p-4 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-violet-500/10 hover:border-violet-500/30 transition group">
           <p className="font-bold text-white group-hover:text-violet-400 transition text-sm">🎟 Entrada Individual</p>
           <p className="text-xs text-slate-500 mt-0.5">Platinum · VIP · Malecón</p>
         </button>
-        <button onClick={() => { resetForm(); setZone('general'); setPrice(0); onModeChange('general_form'); }}
+        <button onClick={() => { resetForm(); setZone('general'); onModeChange('general_form'); }}
           className="w-full text-left p-4 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-blue-500/10 hover:border-blue-500/30 transition group">
           <p className="font-bold text-white group-hover:text-blue-400 transition text-sm">🎫 Entrada General</p>
           <p className="text-xs text-slate-500 mt-0.5">Acceso zona general · precio libre</p>
@@ -307,13 +295,14 @@ function SalePanel({
 
         <div>
           <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-            Precio (S/) {mode === 'general_form' ? '· libre' : '· editable'}
+            Precio total (S/)
           </label>
-          <input type="number" min={0} inputMode="decimal" value={price}
-            onChange={e => setPrice(parseFloat(e.target.value) || 0)} className="form-input w-full text-sm" />
-          {!isBoxMode && isIndividual && entries > 1 && (
-            <p className="text-xs text-slate-500 mt-1">Total: S/ {(price * entries).toFixed(2)}</p>
-          )}
+          <div className="form-input w-full text-sm bg-white/[0.02] cursor-default select-none flex items-center justify-between">
+            <span className="text-amber-400 font-bold">S/ {price.toFixed(2)}</span>
+            {isIndividual && entries > 1 && (
+              <span className="text-slate-500 text-xs">S/ {unitPrice} × {entries}</span>
+            )}
+          </div>
         </div>
 
         <div>

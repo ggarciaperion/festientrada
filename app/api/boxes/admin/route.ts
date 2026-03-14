@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
     await Promise.all([
       kvDel(`box:sold:${boxId}`),
       kvDel(`box:res:${boxId}`),
+      kvDel(`box:prom:${boxId}`),
     ]);
     return NextResponse.json({ ok: true });
   }
