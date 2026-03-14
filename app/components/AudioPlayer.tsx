@@ -2,51 +2,57 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-// Play order: 2.mp3 first, then 1.mp3, then loop
 const TRACKS   = ['/music/2.mp3', '/music/1.mp3'];
-const BASE_VOL = 0.28;   // subtle background volume
-const FADE_MS  = 4000;   // 4 s crossfade overlap
+const BASE_VOL = 0.28;
+const FADE_MS  = 4000; // 4 s crossfade
 
 export default function AudioPlayer() {
-  const [on, setOn] = useState(false);
+  const [on,    setOn]    = useState(false);
+  const [modal, setModal] = useState(false);
 
   const curAudio = useRef<HTMLAudioElement | null>(null);
   const curIdx   = useRef(0);
   const started  = useRef(false);
   const fading   = useRef(false);
 
-  // ── Crossfade: fade out current, fade in next track ────────
+  // Show modal 1.5 s after page loads
+  useEffect(() => {
+    const t = setTimeout(() => setModal(true), 1500);
+    return () => clearTimeout(t);
+  }, []);
+
+  // ── Crossfade: fade out current → fade in next ─────────────
   function crossfade() {
     if (fading.current || !curAudio.current) return;
     fading.current = true;
 
-    const oldAudio = curAudio.current;
+    const old      = curAudio.current;
     const nextIdx  = (curIdx.current + 1) % TRACKS.length;
-    const newAudio = new Audio(TRACKS[nextIdx]);
-    newAudio.volume = 0;
-    newAudio.play().catch(() => {});
+    const next     = new Audio(TRACKS[nextIdx]);
+    next.volume    = 0;
+    next.play().catch(() => {});
 
-    const ticks   = FADE_MS / 60;
-    const stepVol = BASE_VOL / ticks;
-    let   i       = 0;
+    const ticks    = FADE_MS / 60;
+    const step     = BASE_VOL / ticks;
+    let   i        = 0;
 
     const timer = setInterval(() => {
       i++;
-      oldAudio.volume = Math.max(0, BASE_VOL - i * stepVol);
-      newAudio.volume = Math.min(BASE_VOL, i * stepVol);
+      old.volume  = Math.max(0, BASE_VOL - i * step);
+      next.volume = Math.min(BASE_VOL, i * step);
       if (i >= ticks) {
         clearInterval(timer);
-        oldAudio.pause();
-        newAudio.volume  = BASE_VOL;
-        curAudio.current = newAudio;
+        old.pause();
+        next.volume      = BASE_VOL;
+        curAudio.current = next;
         curIdx.current   = nextIdx;
         fading.current   = false;
-        watchEnd(newAudio);
+        watchEnd(next);
       }
     }, 60);
   }
 
-  // ── Watch timeupdate; trigger crossfade FADE_MS before end ─
+  // ── Trigger crossfade when track is near its end ────────────
   function watchEnd(audio: HTMLAudioElement) {
     const check = () => {
       if (!audio.duration || fading.current) return;
@@ -58,38 +64,22 @@ export default function AudioPlayer() {
     audio.addEventListener('timeupdate', check);
   }
 
-  // ── Start playback (only once) ──────────────────────────────
+  // ── Start playback (guarded — only once at a time) ──────────
   function startMusic() {
     if (started.current) return;
     started.current = true;
 
-    const audio = new Audio(TRACKS[0]);
-    audio.volume      = BASE_VOL;
-    curAudio.current  = audio;
-    curIdx.current    = 0;
+    const audio      = new Audio(TRACKS[0]);
+    audio.volume     = BASE_VOL;
+    curAudio.current = audio;
+    curIdx.current   = 0;
 
     audio.play()
       .then(() => { setOn(true); watchEnd(audio); })
       .catch(() => { started.current = false; });
   }
 
-  // ── Start on first user interaction (bypass autoplay policy)
-  useEffect(() => {
-    const go = () => startMusic();
-    document.addEventListener('click',      go, { once: true });
-    document.addEventListener('touchstart', go, { once: true, passive: true });
-    document.addEventListener('scroll',     go, { once: true, passive: true });
-    document.addEventListener('keydown',    go, { once: true });
-    return () => {
-      document.removeEventListener('click',      go);
-      document.removeEventListener('touchstart', go);
-      document.removeEventListener('scroll',     go);
-      document.removeEventListener('keydown',    go);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ── Toggle button ───────────────────────────────────────────
+  // ── Toggle button handler ────────────────────────────────────
   function toggle() {
     if (on) {
       curAudio.current?.pause();
@@ -103,29 +93,67 @@ export default function AudioPlayer() {
   }
 
   return (
-    <button
-      onClick={toggle}
-      title={on ? 'Pausar música' : 'Reproducir música'}
-      className={`fixed bottom-5 right-5 z-50 w-10 h-10 rounded-full flex items-center justify-center
-        border transition-all duration-300 shadow-lg backdrop-blur-md
-        ${on
-          ? 'bg-amber-500/20 border-amber-500/50 text-amber-400 hover:bg-amber-500/30'
-          : 'bg-white/5 border-white/15 text-slate-500 hover:bg-white/10 hover:text-slate-300'
-        }`}
-    >
-      {on ? (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-        </svg>
-      ) : (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-          <line x1="23" y1="9" x2="17" y2="15"/>
-          <line x1="17" y1="9" x2="23" y2="15"/>
-        </svg>
+    <>
+      {/* ── Subtle sound prompt modal ──────────────────────── */}
+      {modal && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 pb-24 sm:pb-4 pointer-events-none">
+          <div className="pointer-events-auto bg-[#0d0d1a]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-5 w-full max-w-[290px] shadow-2xl animate-fade-in-up">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/20 flex items-center justify-center shrink-0">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                </svg>
+              </div>
+              <div>
+                <p className="text-white text-sm font-semibold leading-none">Música del festival</p>
+                <p className="text-slate-500 text-xs mt-1">¿Activar música de fondo?</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setModal(false); startMusic(); }}
+                className="flex-1 py-2 text-xs font-bold rounded-lg bg-amber-500 hover:bg-amber-400 active:scale-95 text-black transition"
+              >
+                Sí, activar
+              </button>
+              <button
+                onClick={() => setModal(false)}
+                className="flex-1 py-2 text-xs font-semibold rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 text-slate-400 border border-white/10 transition"
+              >
+                No, gracias
+              </button>
+            </div>
+          </div>
+        </div>
       )}
-    </button>
+
+      {/* ── Floating toggle button ──────────────────────────── */}
+      <button
+        onClick={toggle}
+        title={on ? 'Pausar música' : 'Reproducir música'}
+        className={`fixed bottom-5 right-5 z-50 w-10 h-10 rounded-full flex items-center justify-center
+          border transition-all duration-300 shadow-lg backdrop-blur-md
+          ${on
+            ? 'bg-amber-500/20 border-amber-500/50 text-amber-400 hover:bg-amber-500/30'
+            : 'bg-white/5 border-white/15 text-slate-500 hover:bg-white/10 hover:text-slate-300'
+          }`}
+      >
+        {on ? (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+          </svg>
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <line x1="23" y1="9" x2="17" y2="15"/>
+            <line x1="17" y1="9" x2="23" y2="15"/>
+          </svg>
+        )}
+      </button>
+    </>
   );
 }
