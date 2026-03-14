@@ -139,11 +139,11 @@ function SalePanel({
 
     if (mode === 'box_form') {
       if (!selectedBox) { setError('No hay box seleccionado.'); return; }
-      const boxRes = await fetch('/api/boxes/admin', {
+      const boxRes = await fetch('/api/boxes/promotor-sell', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'mark-sold-promotor', boxId: selectedBox.id,
-          buyer: { name: clientName, dni: clientDni, entries: 8, purchaseType: 'full', paidAmount: price, promotorId: promotor.id },
+          boxId: selectedBox.id,
+          buyer: { name: clientName, dni: clientDni, entries: 10, paidAmount: price },
         }),
       });
       if (!(await boxRes.json()).ok) { setError('Este box ya no está disponible.'); return; }
