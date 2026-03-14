@@ -2,6 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { generateTicketToken } from '@/lib/tickets';
 import { sendConfirmationEmail } from '@/lib/email';
+import { kvSet, kvLPush } from '@/lib/kv';
+
+const ORDER_TTL = 180 * 24 * 60 * 60; // 180 days
+
+export interface OnlineOrder {
+  orderId:    string;
+  buyerName:  string;
+  buyerEmail: string;
+  buyerPhone: string;
+  buyerDni:   string;
+  type:       'box' | 'individual';
+  zone:       string;
+  qty:        number;
+  amount:     number;
+  ticketToken: string;
+  mpPaymentId: number | null;
+  createdAt:  string;
+}
 
 const MP_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN!;
 
@@ -125,6 +143,26 @@ export async function POST(req: NextRequest) {
         ticketToken,
         amount: body.amount,
       }).catch(e => console.error('Error sending confirmation email:', e));
+
+      // ── Persist order to Redis so admin dashboard can see it ──
+      const order: OnlineOrder = {
+        orderId,
+        buyerName:   body.buyerInfo.name,
+        buyerEmail:  body.buyerInfo.email,
+        buyerPhone:  body.buyerInfo.phone,
+        buyerDni:    body.buyerInfo.dni,
+        type:        body.purchaseDetails.type,
+        zone:        body.purchaseDetails.zone,
+        qty:         body.purchaseDetails.qty,
+        amount:      body.amount,
+        ticketToken,
+        mpPaymentId: mpData.id ?? null,
+        createdAt:   new Date().toISOString(),
+      };
+      Promise.all([
+        kvSet(`online:order:${orderId}`, JSON.stringify(order), ORDER_TTL),
+        kvLPush('online:orders', orderId),
+      ]).catch(e => console.error('Error saving order to Redis:', e));
     }
   } catch (e) {
     console.error('Error generating ticket token:', e);

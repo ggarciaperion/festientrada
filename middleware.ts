@@ -22,6 +22,7 @@ export async function middleware(request: NextRequest) {
   const isProtected =
     (pathname.startsWith('/admin') && pathname !== '/admin/login') ||
     pathname === '/api/tickets/validated' ||
+    pathname === '/api/tickets/orders' ||
     pathname === '/api/boxes/admin' ||
     pathname === '/api/promotor/manage' ||
     pathname === '/api/promotor/confirm-sale';
@@ -56,6 +57,7 @@ export const config = {
   matcher: [
     '/admin/:path*',
     '/api/tickets/validated',
+    '/api/tickets/orders',
     '/api/boxes/admin',
     '/api/promotor/manage',
     '/api/promotor/confirm-sale',

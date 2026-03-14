@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { db, Ticket } from '@/lib/database';
 import { ZONE_COLORS, STATUS_COLORS, type Box, type BoxStatus } from '@/lib/boxes';
 import {
   SALE_TYPE_LABELS,
@@ -10,19 +9,15 @@ import {
   type Promotor,
   type Sale,
 } from '@/lib/promotors';
+import type { OnlineOrder } from '@/app/api/payment/process/route';
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<'tickets' | 'boxes' | 'promotores' | 'clientes'>('tickets');
-  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'boxes' | 'promotores' | 'clientes'>('dashboard');
+  const [onlineOrders, setOnlineOrders] = useState<OnlineOrder[]>([]);
   const [boxes,   setBoxes]   = useState<Box[]>([]);
-  const [stats, setStats] = useState({
-    totalOrders: 0, totalTickets: 0, totalRevenue: 0, validatedOrders: 0,
-  });
   const [boxStats, setBoxStats] = useState({
     totalBoxes: 0, available: 0, reserved: 0, sold: 0, revenue: 0,
   });
-  const [filter, setFilter] = useState<'all' | 'general' | 'vip' | 'platino'>('all');
-  const [searchTerm, setSearchTerm] = useState('');
 
   // Promotores state
   const [promotors, setPromotors]           = useState<Promotor[]>([]);
@@ -40,17 +35,16 @@ export default function AdminPage() {
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
-    setTickets(db.getTickets());
-    setStats(db.getStats());
     loadQREntries();
-    // Load promotors and sales from API (Redis-backed)
     try {
-      const [promRes, salesRes] = await Promise.all([
+      const [promRes, salesRes, ordersRes] = await Promise.all([
         fetch('/api/promotor/manage').then(r => r.json()),
         fetch('/api/promotor/sales?all=1').then(r => r.json()),
+        fetch('/api/tickets/orders').then(r => r.json()),
       ]);
-      if (promRes.ok && promRes.promotors) setPromotors(promRes.promotors);
-      if (salesRes.ok && salesRes.sales)   setPromotorSales(salesRes.sales);
+      if (promRes.ok  && promRes.promotors)  setPromotors(promRes.promotors);
+      if (salesRes.ok && salesRes.sales)     setPromotorSales(salesRes.sales);
+      if (ordersRes.ok && ordersRes.orders)  setOnlineOrders(ordersRes.orders);
     } catch { /* Redis might not be available */ }
     try {
       const res  = await fetch('/api/boxes');
@@ -177,41 +171,6 @@ export default function AdminPage() {
     loadData();
   };
 
-  const handleClearDatabase = () => {
-    if (confirm('¿Estás seguro de que quieres borrar TODOS los tickets? Esta acción no se puede deshacer.')) {
-      db.clearAll();
-      loadData();
-      alert('Base de datos limpiada');
-    }
-  };
-
-  // Filtrar tickets
-  const filteredTickets = tickets.filter(ticket => {
-    const matchesFilter = filter === 'all' || ticket.ticketType === filter;
-    const matchesSearch =
-      ticket.buyerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.buyerEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.buyerDNI.includes(searchTerm) ||
-      ticket.id.includes(searchTerm);
-
-    return matchesFilter && matchesSearch;
-  });
-
-  // Calcular estadísticas por tipo
-  const statsByType = {
-    general: {
-      count: tickets.filter(t => t.ticketType === 'general').reduce((sum, t) => sum + t.quantity, 0),
-      revenue: tickets.filter(t => t.ticketType === 'general').reduce((sum, t) => sum + t.totalPrice, 0),
-    },
-    vip: {
-      count: tickets.filter(t => t.ticketType === 'vip').reduce((sum, t) => sum + t.quantity, 0),
-      revenue: tickets.filter(t => t.ticketType === 'vip').reduce((sum, t) => sum + t.totalPrice, 0),
-    },
-    platino: {
-      count: tickets.filter(t => (t.ticketType as string) === 'platino').reduce((sum, t) => sum + t.quantity, 0),
-      revenue: tickets.filter(t => (t.ticketType as string) === 'platino').reduce((sum, t) => sum + t.totalPrice, 0),
-    },
-  };
 
   return (
     <main className="min-h-screen py-10 sm:py-20 bg-[#09090F]">
@@ -242,7 +201,7 @@ export default function AdminPage() {
           {/* Tabs */}
           <div className="flex gap-1 sm:gap-2 border-b border-white/8 pb-0 overflow-x-auto">
             {([
-              { id: 'tickets',    label: '🎫 Entradas Generales' },
+              { id: 'dashboard',  label: '📊 Dashboard' },
               { id: 'boxes',      label: '📦 Boxes' },
               { id: 'promotores', label: '👥 Promotores' },
               { id: 'clientes',   label: '👤 Clientes' },
@@ -720,14 +679,14 @@ export default function AdminPage() {
             type: string; price: number; date: string; source: 'online' | 'promotor';
           };
           const rows: ClientRow[] = [
-            ...tickets.map(t => ({
-              dni:    t.buyerDNI,
-              name:   t.buyerName,
-              phone:  t.buyerPhone,
-              email:  t.buyerEmail,
-              type:   `${TICKET_TYPE_LABEL[t.ticketType] ?? t.ticketType} ×${t.quantity}`,
-              price:  t.totalPrice,
-              date:   t.purchaseDate,
+            ...onlineOrders.map(o => ({
+              dni:    o.buyerDni,
+              name:   o.buyerName,
+              phone:  o.buyerPhone,
+              email:  o.buyerEmail,
+              type:   o.type === 'box' ? `Box ${o.zone}` : `Individual ${o.zone} ×${o.qty}`,
+              price:  o.amount,
+              date:   o.createdAt,
               source: 'online' as const,
             })),
             ...promotorSales
@@ -834,370 +793,275 @@ export default function AdminPage() {
           );
         })()}
 
-        {/* ════════════════ TICKETS TAB ════════════════ */}
-        {activeTab === 'tickets' && <>
+        {/* ════════════════ DASHBOARD TAB ════════════════ */}
+        {activeTab === 'dashboard' && (() => {
+          const confirmedSales = promotorSales.filter(s => s.status === 'confirmed');
 
-        {/* Estadísticas principales */}
-        <div className="grid md:grid-cols-4 gap-6 mb-12">
-          <div className="glass-card p-6 text-center neon-border">
-            <div className="text-4xl mb-2">📦</div>
-            <div className="text-3xl font-bold text-tropical-coral mb-1">{stats.totalOrders}</div>
-            <div className="text-gray-400 text-sm">Órdenes Totales</div>
-          </div>
+          // ── Revenue totals ─────────────────────────────────────
+          const onlineRevenue   = onlineOrders.reduce((s, o) => s + o.amount, 0);
+          const boxRevenue      = boxStats.revenue;
+          const promotorRevenue = confirmedSales.reduce((s, s2) => s + s2.price, 0);
+          const totalRevenue    = onlineRevenue + promotorRevenue; // boxes already counted via paidAmount in boxRevenue
 
-          <div className="glass-card p-6 text-center neon-border">
-            <div className="text-4xl mb-2">🎫</div>
-            <div className="text-3xl font-bold text-tropical-teal mb-1">{stats.totalTickets}</div>
-            <div className="text-gray-400 text-sm">Entradas Vendidas</div>
-          </div>
+          // ── Box counts per zone ────────────────────────────────
+          const boxByZone = (zone: string) => boxes.filter(b => b.zone === zone);
+          const boxSold   = (zone: string) => boxByZone(zone).filter(b => b.status === 'sold' || b.status === 'temp_reserved').length;
+          const boxTotal  = (zone: string) => boxByZone(zone).length;
 
-          <div className="glass-card p-6 text-center neon-border">
-            <div className="text-4xl mb-2">💰</div>
-            <div className="text-3xl font-bold text-tropical-sunset mb-1">S/ {stats.totalRevenue.toFixed(2)}</div>
-            <div className="text-gray-400 text-sm">Ingresos Totales</div>
-          </div>
+          // ── Individual counts (online + confirmed promotor) ───
+          const indiv = (zone: string, type: string) => {
+            const fromOnline   = onlineOrders.filter(o => o.zone === zone && o.type === type).reduce((s, o) => s + o.qty, 0);
+            const fromPromotor = confirmedSales.filter(s => s.zone === zone && !IS_BOX_SALE[s.saleType]).reduce((s, s2) => s + s2.entries, 0);
+            return fromOnline + fromPromotor;
+          };
+          const generalCount = onlineOrders.filter(o => o.zone === 'general').reduce((s, o) => s + o.qty, 0)
+            + confirmedSales.filter(s => s.saleType === 'entrada_general').reduce((s, s2) => s + s2.entries, 0);
 
-          <div className="glass-card p-6 text-center neon-border">
-            <div className="text-4xl mb-2">✅</div>
-            <div className="text-3xl font-bold text-tropical-palm mb-1">{stats.validatedOrders}</div>
-            <div className="text-gray-400 text-sm">Órdenes Validadas</div>
-          </div>
-        </div>
+          const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
-        {/* Estadísticas por tipo */}
-        <div className="glass-card p-8 mb-12">
-          <h2 className="text-2xl font-bold text-tropical-sunset mb-6">📊 Ventas por Tipo de Entrada</h2>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="bg-tropical-night/50 p-6 rounded-lg border border-tropical-palm">
-              <h3 className="text-xl font-bold text-tropical-palm mb-4">GENERAL</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Entradas:</span>
-                  <span className="font-bold">{statsByType.general.count}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Ingresos:</span>
-                  <span className="font-bold text-tropical-sunset">S/ {statsByType.general.revenue.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Porcentaje:</span>
-                  <span className="font-bold">
-                    {stats.totalTickets > 0 ? ((statsByType.general.count / stats.totalTickets) * 100).toFixed(1) : 0}%
-                  </span>
+          return (
+            <div className="space-y-8">
+              {/* ── KPI principal ───────────────────────────────── */}
+              <div className="card p-6 sm:p-8 border border-amber-500/20 bg-amber-500/[0.03]">
+                <p className="text-slate-500 text-xs uppercase tracking-widest font-semibold mb-1">Total recaudado</p>
+                <p className="font-heading font-black text-4xl sm:text-5xl text-amber-400">
+                  S/ {(onlineRevenue + boxRevenue + promotorRevenue).toFixed(2)}
+                </p>
+                <div className="flex flex-wrap gap-4 mt-3 text-xs text-slate-500">
+                  <span>Online: <strong className="text-slate-300">S/ {onlineRevenue.toFixed(2)}</strong></span>
+                  <span>Boxes: <strong className="text-slate-300">S/ {boxRevenue.toFixed(2)}</strong></span>
+                  <span>Promotores confirmados: <strong className="text-slate-300">S/ {promotorRevenue.toFixed(2)}</strong></span>
                 </div>
               </div>
-            </div>
 
-            <div className="bg-tropical-night/50 p-6 rounded-lg border border-tropical-coral">
-              <h3 className="text-xl font-bold text-tropical-coral mb-4">VIP</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Entradas:</span>
-                  <span className="font-bold">{statsByType.vip.count}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Ingresos:</span>
-                  <span className="font-bold text-tropical-sunset">S/ {statsByType.vip.revenue.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Porcentaje:</span>
-                  <span className="font-bold">
-                    {stats.totalTickets > 0 ? ((statsByType.vip.count / stats.totalTickets) * 100).toFixed(1) : 0}%
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-tropical-night/50 p-6 rounded-lg border border-tropical-sunset">
-              <h3 className="text-xl font-bold text-tropical-sunset mb-4">PLATINO</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Entradas:</span>
-                  <span className="font-bold">{statsByType.platino.count}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Ingresos:</span>
-                  <span className="font-bold text-tropical-sunset">S/ {statsByType.platino.revenue.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Porcentaje:</span>
-                  <span className="font-bold">
-                    {stats.totalTickets > 0 ? ((statsByType.platino.count / stats.totalTickets) * 100).toFixed(1) : 0}%
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filtros y búsqueda */}
-        <div className="glass-card p-6 mb-8">
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold mb-2 text-tropical-teal">
-                Buscar
-              </label>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Nombre, email, DNI, ID de orden..."
-                className="w-full px-4 py-3 rounded-lg bg-white/10 border border-gray-600 focus:border-tropical-teal focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold mb-2 text-tropical-teal">
-                Filtrar por tipo
-              </label>
-              <select
-                value={filter}
-                onChange={(e) => setFilter(e.target.value as any)}
-                className="w-full px-4 py-3 rounded-lg bg-white/10 border border-gray-600 focus:border-tropical-teal focus:outline-none"
-              >
-                <option value="all">Todos</option>
-                <option value="general">General</option>
-                <option value="vip">VIP</option>
-                <option value="platino">Platino</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Lista de tickets */}
-        <div className="glass-card p-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-tropical-coral">
-              🎫 Todas las Órdenes ({filteredTickets.length})
-            </h2>
-            <button
-              onClick={handleClearDatabase}
-              className="px-4 py-2 bg-red-500/20 border border-red-500 rounded-lg hover:bg-red-500/30 transition text-sm"
-            >
-              🗑️ Limpiar DB
-            </button>
-          </div>
-
-          {filteredTickets.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
-              <div className="text-6xl mb-4">📭</div>
-              <p>No hay órdenes {searchTerm && 'que coincidan con la búsqueda'}</p>
-            </div>
-          ) : (
-            <>
-              {/* Desktop table */}
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-600">
-                      <th className="text-left p-3 text-tropical-sunset">Orden</th>
-                      <th className="text-left p-3 text-tropical-sunset">Comprador</th>
-                      <th className="text-left p-3 text-tropical-sunset">DNI</th>
-                      <th className="text-left p-3 text-tropical-sunset">Tipo</th>
-                      <th className="text-center p-3 text-tropical-sunset">Cant.</th>
-                      <th className="text-right p-3 text-tropical-sunset">Total</th>
-                      <th className="text-center p-3 text-tropical-sunset">Estado</th>
-                      <th className="text-center p-3 text-tropical-sunset">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredTickets.map((ticket) => (
-                      <tr key={ticket.id} className="border-b border-gray-700/50 hover:bg-white/5">
-                        <td className="p-3">
-                          <div className="font-mono text-xs text-tropical-teal">
-                            #{ticket.id.substring(0, 8)}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {new Date(ticket.purchaseDate).toLocaleDateString('es-PE')}
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <div className="font-semibold">{ticket.buyerName}</div>
-                          <div className="text-xs text-gray-400">{ticket.buyerEmail}</div>
-                        </td>
-                        <td className="p-3 text-sm">{ticket.buyerDNI}</td>
-                        <td className="p-3">
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                            ticket.ticketType === 'general' ? 'bg-tropical-palm/20 text-tropical-palm' :
-                            ticket.ticketType === 'vip' ? 'bg-tropical-coral/20 text-tropical-coral' :
-                            'bg-tropical-sunset/20 text-tropical-sunset'
-                          }`}>
-                            {ticket.ticketType}
+              {/* ── Cards por zona — Boxes ───────────────────────── */}
+              <div>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Boxes</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {([
+                    { zone: 'platinum', label: 'Box Platinum',  total: 20, color: '#D4A017', bg: 'amber' },
+                    { zone: 'vip',      label: 'Box VIP',       total: 20, color: '#a855f7', bg: 'violet' },
+                    { zone: 'malecon',  label: 'Box Malecón',   total: 21, color: '#0ea5e9', bg: 'sky'    },
+                  ] as const).map(({ zone, label, total, color, bg }) => {
+                    const sold = boxSold(zone);
+                    const pct  = Math.round((sold / total) * 100);
+                    const rev  = boxes.filter(b => b.zone === zone).reduce((s, b) => s + b.buyers.reduce((a, by) => a + by.paidAmount, 0), 0);
+                    return (
+                      <div key={zone} className="card p-5 border" style={{ borderColor: `${color}33` }}>
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="font-bold text-white text-sm">{label}</p>
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ color, background: `${color}22` }}>
+                            {sold}/{total}
                           </span>
-                        </td>
-                        <td className="p-3 text-center font-bold">{ticket.quantity}</td>
-                        <td className="p-3 text-right font-bold text-tropical-sunset">
-                          S/ {ticket.totalPrice.toFixed(2)}
-                        </td>
-                        <td className="p-3 text-center">
-                          <span className={`text-xs font-semibold ${
-                            ticket.validated ? 'text-tropical-palm' : 'text-gray-500'
-                          }`}>
-                            {ticket.validated ? '✓ Validada' : '○ Pendiente'}
-                          </span>
-                        </td>
-                        <td className="p-3 text-center">
-                          <Link
-                            href={`/ticket/${ticket.id}`}
-                            className="text-tropical-teal hover:underline text-sm"
-                          >
-                            Ver
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                        {/* Progress bar */}
+                        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden mb-2">
+                          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
+                        </div>
+                        <div className="flex justify-between text-xs text-slate-500 mt-1">
+                          <span>{pct}% vendido</span>
+                          <span className="text-amber-400 font-bold">S/ {rev.toFixed(0)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              {/* Mobile cards */}
-              <div className="sm:hidden divide-y divide-gray-700/50">
-                {filteredTickets.map((ticket) => (
-                  <div key={ticket.id} className="p-4 space-y-2 hover:bg-white/[0.02]">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-semibold text-white">{ticket.buyerName}</p>
-                        <p className="text-xs text-gray-400">{ticket.buyerEmail}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">DNI: {ticket.buyerDNI}</p>
+
+              {/* ── Cards por zona — Entradas Individuales ──────── */}
+              <div>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Entradas Individuales</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {([
+                    { zone: 'platinum', label: 'Platinum',  color: '#D4A017' },
+                    { zone: 'vip',      label: 'VIP',       color: '#a855f7' },
+                    { zone: 'malecon',  label: 'Malecón',   color: '#0ea5e9' },
+                    { zone: 'general',  label: 'General',   color: '#22c55e' },
+                  ] as const).map(({ zone, label, color }) => {
+                    const count = zone === 'general' ? generalCount : indiv(zone, 'individual');
+                    const rev = zone === 'general'
+                      ? onlineOrders.filter(o => o.zone === 'general').reduce((s, o) => s + o.amount, 0) + confirmedSales.filter(s => s.saleType === 'entrada_general').reduce((s, s2) => s + s2.price, 0)
+                      : onlineOrders.filter(o => o.zone === zone).reduce((s, o) => s + o.amount, 0) + confirmedSales.filter(s => s.zone === zone && !IS_BOX_SALE[s.saleType]).reduce((s, s2) => s + s2.price, 0);
+                    return (
+                      <div key={zone} className="card p-4 border" style={{ borderColor: `${color}33` }}>
+                        <p className="text-xs text-slate-500 mb-1">{label}</p>
+                        <p className="font-heading font-black text-2xl" style={{ color }}>{count}</p>
+                        <p className="text-xs text-slate-500 mt-1">vendidas</p>
+                        <p className="text-xs text-amber-400 font-bold mt-0.5">S/ {rev.toFixed(0)}</p>
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="font-bold text-tropical-sunset">S/ {ticket.totalPrice.toFixed(2)}</p>
-                        <p className="text-xs text-gray-500">{new Date(ticket.purchaseDate).toLocaleDateString('es-PE')}</p>
-                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ── Compras online recientes ─────────────────────── */}
+              <div className="card overflow-hidden">
+                <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-white text-sm">Compras online (MercadoPago)</p>
+                    <p className="text-slate-500 text-xs mt-0.5">{onlineOrders.length} orden{onlineOrders.length !== 1 ? 'es' : ''}</p>
+                  </div>
+                  <button onClick={loadData} className="text-xs text-slate-500 hover:text-slate-300 transition px-2 py-1 rounded border border-white/10">🔄</button>
+                </div>
+                {onlineOrders.length === 0 ? (
+                  <div className="p-8 text-center text-slate-500 text-sm">No hay compras online aún</div>
+                ) : (
+                  <>
+                    <div className="hidden sm:block overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-white/5">
+                            {['Fecha', 'Cliente', 'DNI', 'Email', 'Tipo', 'Cant.', 'Monto'].map(h => (
+                              <th key={h} className="text-left text-xs text-slate-500 font-semibold uppercase tracking-wider px-4 py-3">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {onlineOrders.map(o => (
+                            <tr key={o.orderId} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
+                              <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{fmtDate(o.createdAt)}</td>
+                              <td className="px-4 py-3 text-white font-medium">{o.buyerName}</td>
+                              <td className="px-4 py-3 text-slate-400 text-xs font-mono">{o.buyerDni}</td>
+                              <td className="px-4 py-3 text-slate-400 text-xs">{o.buyerEmail}</td>
+                              <td className="px-4 py-3">
+                                <span className="text-xs bg-white/[0.04] border border-white/[0.08] rounded-full px-2 py-0.5 text-slate-300">
+                                  {o.type === 'box' ? `Box ${o.zone}` : `Individual ${o.zone}`} ×{o.qty}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-slate-300 text-center">{o.qty}</td>
+                              <td className="px-4 py-3 text-amber-400 font-bold">S/ {o.amount}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase ${
-                          ticket.ticketType === 'general' ? 'bg-tropical-palm/20 text-tropical-palm' :
-                          ticket.ticketType === 'vip' ? 'bg-tropical-coral/20 text-tropical-coral' :
-                          'bg-tropical-sunset/20 text-tropical-sunset'
-                        }`}>
-                          {ticket.ticketType}
-                        </span>
-                        <span className="text-xs text-gray-400">× {ticket.quantity}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className={`text-xs font-semibold ${ticket.validated ? 'text-tropical-palm' : 'text-gray-500'}`}>
-                          {ticket.validated ? '✓ Validada' : '○ Pendiente'}
-                        </span>
-                        <Link href={`/ticket/${ticket.id}`} className="text-tropical-teal hover:underline text-xs">Ver</Link>
-                      </div>
+                    <div className="sm:hidden divide-y divide-white/[0.03]">
+                      {onlineOrders.map(o => (
+                        <div key={o.orderId} className="p-4 space-y-1.5">
+                          <div className="flex items-start justify-between">
+                            <div><p className="text-white font-medium">{o.buyerName}</p><p className="text-slate-500 text-xs font-mono">{o.buyerDni}</p></div>
+                            <p className="text-amber-400 font-bold">S/ {o.amount}</p>
+                          </div>
+                          <p className="text-slate-400 text-xs">{o.buyerEmail}</p>
+                          <div className="flex items-center justify-between text-xs text-slate-500">
+                            <span>{o.type === 'box' ? `Box ${o.zone}` : `Individual ${o.zone}`} ×{o.qty}</span>
+                            <span>{fmtDate(o.createdAt)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* ── QR Validados en Puerta ── */}
+              <div className="mt-2">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-white">🔍 QR Validados en Puerta</p>
+                    <p className="text-slate-500 text-xs mt-0.5">Registros en tiempo real desde Redis</p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="bg-emerald-500/15 border border-emerald-500/30 rounded-xl px-4 py-2 text-center">
+                      <p className="text-emerald-400 font-black text-2xl leading-none">{qrEntries.length}</p>
+                      <p className="text-emerald-600 text-[10px] uppercase tracking-wider mt-0.5">validados</p>
+                    </div>
+                    <button
+                      onClick={loadQREntries}
+                      disabled={qrLoading}
+                      className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-slate-400 text-xs hover:bg-white/10 transition disabled:opacity-50"
+                    >
+                      {qrLoading ? '...' : '🔄'}
+                    </button>
+                  </div>
+                </div>
+                {qrEntries.length === 0 ? (
+                  <div className="card p-8 text-center">
+                    <p className="text-slate-600 text-sm">
+                      {qrLoading ? 'Cargando...' : 'Ningún QR validado aún'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="card overflow-hidden">
+                    {/* Desktop table */}
+                    <div className="hidden sm:block overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-white/8">
+                            {['Hora', 'Nombre', 'Zona', 'Tipo', 'Pulseras', 'Orden'].map(h => (
+                              <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {qrEntries.map((e, i) => {
+                            const zoneColors: Record<string, string> = { platinum: '#FACC15', vip: '#a855f7', malecon: '#0ea5e9', general: '#3b82f6' };
+                            const zoneLabels: Record<string, string> = { platinum: 'PLATINUM', vip: 'VIP', malecon: 'MALECÓN', general: 'GENERAL' };
+                            const pulseras = e.type === 'box' ? 10 : e.qty;
+                            return (
+                              <tr key={i} className="border-b border-white/5 hover:bg-emerald-500/[0.03]">
+                                <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">
+                                  {new Date(e.at).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                                  <span className="block text-slate-600">{new Date(e.at).toLocaleDateString('es-PE')}</span>
+                                </td>
+                                <td className="px-4 py-3 text-white font-semibold">{e.name}</td>
+                                <td className="px-4 py-3">
+                                  <span className="text-xs font-bold" style={{ color: zoneColors[e.zone] ?? '#94a3b8' }}>
+                                    {zoneLabels[e.zone] ?? e.zone.toUpperCase()}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-slate-400 text-xs">
+                                  {e.type === 'box' ? 'Box completo' : 'Individual'}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className="text-emerald-400 font-bold">{pulseras}</span>
+                                </td>
+                                <td className="px-4 py-3 font-mono text-xs text-slate-500">
+                                  {e.orderId.slice(-10).toUpperCase()}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    {/* Mobile cards */}
+                    <div className="sm:hidden divide-y divide-white/5">
+                      {qrEntries.map((e, i) => {
+                        const zoneColors: Record<string, string> = { platinum: '#FACC15', vip: '#a855f7', malecon: '#0ea5e9', general: '#3b82f6' };
+                        const zoneLabels: Record<string, string> = { platinum: 'PLATINUM', vip: 'VIP', malecon: 'MALECÓN', general: 'GENERAL' };
+                        const pulseras = e.type === 'box' ? 10 : e.qty;
+                        return (
+                          <div key={i} className="p-4 hover:bg-emerald-500/[0.03]">
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <p className="text-white font-semibold">{e.name}</p>
+                              <span className="text-xs font-bold shrink-0" style={{ color: zoneColors[e.zone] ?? '#94a3b8' }}>
+                                {zoneLabels[e.zone] ?? e.zone.toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-400">
+                                {new Date(e.at).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                                {' · '}{e.type === 'box' ? 'Box completo' : 'Individual'}
+                                {' · '}<span className="text-emerald-400 font-bold">{pulseras} pulseras</span>
+                              </span>
+                              <span className="text-slate-600 font-mono">{e.orderId.slice(-8).toUpperCase()}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                ))}
+                )}
               </div>
-            </>
-          )}
-        </div>
 
-        {/* ── QR Validados (Redis) ── */}
-        <div className="mt-10">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div className="min-w-0">
-              <h2 className="text-white font-bold text-lg">🔍 QR Validados en Puerta</h2>
-              <p className="text-slate-500 text-xs mt-0.5">Registros en tiempo real desde Redis</p>
-            </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="bg-emerald-500/15 border border-emerald-500/30 rounded-xl px-4 py-2 text-center">
-                <p className="text-emerald-400 font-black text-2xl leading-none">{qrEntries.length}</p>
-                <p className="text-emerald-600 text-[10px] uppercase tracking-wider mt-0.5">validados</p>
-              </div>
-              <button
-                onClick={loadQREntries}
-                disabled={qrLoading}
-                className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-slate-400 text-xs hover:bg-white/10 transition disabled:opacity-50"
-              >
-                {qrLoading ? '...' : '🔄'}
-              </button>
-            </div>
-          </div>
-
-          {qrEntries.length === 0 ? (
-            <div className="card p-8 text-center">
-              <p className="text-slate-600 text-sm">
-                {qrLoading ? 'Cargando...' : 'Ningún QR validado aún'}
-              </p>
-            </div>
-          ) : (
-            <div className="card overflow-hidden">
-              {/* Desktop table */}
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-white/8">
-                      {['Hora', 'Nombre', 'Zona', 'Tipo', 'Pulseras', 'Orden'].map(h => (
-                        <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {qrEntries.map((e, i) => {
-                      const zoneColors: Record<string, string> = { platinum: '#FACC15', vip: '#a855f7', malecon: '#0ea5e9', general: '#3b82f6' };
-                      const zoneLabels: Record<string, string> = { platinum: 'PLATINUM', vip: 'VIP', malecon: 'MALECÓN', general: 'GENERAL' };
-                      const pulseras = e.type === 'box' ? 10 : e.qty;
-                      return (
-                        <tr key={i} className="border-b border-white/5 hover:bg-emerald-500/[0.03]">
-                          <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">
-                            {new Date(e.at).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
-                            <span className="block text-slate-600">{new Date(e.at).toLocaleDateString('es-PE')}</span>
-                          </td>
-                          <td className="px-4 py-3 text-white font-semibold">{e.name}</td>
-                          <td className="px-4 py-3">
-                            <span className="text-xs font-bold" style={{ color: zoneColors[e.zone] ?? '#94a3b8' }}>
-                              {zoneLabels[e.zone] ?? e.zone.toUpperCase()}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-slate-400 text-xs">
-                            {e.type === 'box' ? 'Box completo' : 'Individual'}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="text-emerald-400 font-bold">{pulseras}</span>
-                          </td>
-                          <td className="px-4 py-3 font-mono text-xs text-slate-500">
-                            {e.orderId.slice(-10).toUpperCase()}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              {/* Mobile cards */}
-              <div className="sm:hidden divide-y divide-white/5">
-                {qrEntries.map((e, i) => {
-                  const zoneColors: Record<string, string> = { platinum: '#FACC15', vip: '#a855f7', malecon: '#0ea5e9', general: '#3b82f6' };
-                  const zoneLabels: Record<string, string> = { platinum: 'PLATINUM', vip: 'VIP', malecon: 'MALECÓN', general: 'GENERAL' };
-                  const pulseras = e.type === 'box' ? 10 : e.qty;
-                  return (
-                    <div key={i} className="p-4 hover:bg-emerald-500/[0.03]">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <p className="text-white font-semibold">{e.name}</p>
-                        <span className="text-xs font-bold shrink-0" style={{ color: zoneColors[e.zone] ?? '#94a3b8' }}>
-                          {zoneLabels[e.zone] ?? e.zone.toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-400">
-                          {new Date(e.at).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
-                          {' · '}{e.type === 'box' ? 'Box completo' : 'Individual'}
-                          {' · '}<span className="text-emerald-400 font-bold">{pulseras} pulseras</span>
-                        </span>
-                        <span className="text-slate-600 font-mono">{e.orderId.slice(-8).toUpperCase()}</span>
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="text-center text-slate-600 text-xs pb-2">
+                <p>Boxes · Promotores · Ventas → Redis (Upstash) · Validaciones QR → Redis</p>
               </div>
             </div>
-          )}
-        </div>
+          );
+        })()}
 
-        {/* Footer info */}
-        <div className="mt-8 text-center text-slate-600 text-xs">
-          <p>💾 Boxes · Promotores · Ventas → Redis (Upstash) · Validaciones QR → Redis</p>
-        </div>
-
-        </> }
       </div>
     </main>
   );
