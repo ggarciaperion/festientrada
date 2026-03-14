@@ -65,14 +65,11 @@ export default function CheckoutPanel({
     paymentMethods: { minInstallments: 1, maxInstallments: 1 },
   }), []);
 
-  const handleSubmit = async (param: {
-    selectedPaymentMethod: string;
-    formData: {
-      token:            string;
-      installments:     number;
-      paymentMethodId:  string;
-      payer?: { email?: string; identification?: { type?: string; number?: string } };
-    };
+  const handleSubmit = async (formData: {
+    token:           string;
+    installments:    number;
+    paymentMethodId: string;
+    payer?: { email?: string; identification?: { type?: string; number?: string } };
   }) => {
     setError('');
     try {
@@ -80,7 +77,7 @@ export default function CheckoutPanel({
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
-          formData:        param.formData,
+          formData,
           buyerInfo,
           purchaseDetails,
           amount,
