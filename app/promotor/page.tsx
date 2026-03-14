@@ -131,9 +131,10 @@ function SalePanel({
   onBoxSelected: (box: Box | null) => void;
   onSaleComplete: () => void;
 }) {
-  const [clientDni,  setClientDni]  = useState('');
-  const [clientName, setClientName] = useState('');
-  const [price,      setPrice]      = useState(0);
+  const [clientDni,   setClientDni]   = useState('');
+  const [clientName,  setClientName]  = useState('');
+  const [clientEmail, setClientEmail] = useState('');
+  const [price,       setPrice]       = useState(0);
   const [entries,    setEntries]    = useState(1);
   const [zone,       setZone]       = useState<BoxZone | 'general'>('platinum');
   const [notes,      setNotes]      = useState('');
@@ -159,7 +160,7 @@ function SalePanel({
   }, [zone, mode]);
 
   const resetForm = () => {
-    setClientDni(''); setClientName(''); setPrice(0);
+    setClientDni(''); setClientName(''); setClientEmail(''); setPrice(0);
     setEntries(1); setZone('platinum'); setNotes(''); setError('');
   };
 
@@ -172,6 +173,9 @@ function SalePanel({
   const handleConfirm = async () => {
     setError('');
     if (!clientDni || !clientName) { setError('Ingresa DNI y nombre del cliente.'); return; }
+    if (!clientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
+      setError('Ingresa un email válido del cliente.'); return;
+    }
     if (price <= 0) { setError('El precio debe ser mayor a 0.'); return; }
 
     if (mode === 'box_form') {
@@ -195,23 +199,26 @@ function SalePanel({
       const ok = (await res.json()).ok;
       if (!ok) { setError('Este box ya no está disponible.'); return; }
       promotorService.addSale({
-        promotorId: promotor.id, clientDni, clientName,
+        promotorId: promotor.id, clientDni, clientName, clientEmail,
         saleType: `box_${selectedBox.zone}` as SaleType,
         zone: selectedBox.zone, boxId: selectedBox.id,
         entries: 10, price, notes: notes || undefined,
+        status: 'pending',
       });
     } else if (mode === 'individual_form') {
       const saleType = `individual_${zone}` as SaleType;
       promotorService.addSale({
-        promotorId: promotor.id, clientDni, clientName,
+        promotorId: promotor.id, clientDni, clientName, clientEmail,
         saleType, zone: zone as BoxZone,
         entries, price: price * entries, notes: notes || undefined,
+        status: 'pending',
       });
     } else if (mode === 'general_form') {
       promotorService.addSale({
-        promotorId: promotor.id, clientDni, clientName,
+        promotorId: promotor.id, clientDni, clientName, clientEmail,
         saleType: 'entrada_general', zone: 'general',
         entries, price, notes: notes || undefined,
+        status: 'pending',
       });
     }
 
@@ -277,11 +284,12 @@ function SalePanel({
   if (mode === 'success') {
     return (
       <div className="h-full flex flex-col justify-center items-center gap-3 px-2 text-center">
-        <div className="w-14 h-14 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center text-green-400">
+        <div className="w-14 h-14 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
           <IconCheck />
         </div>
-        <p className="font-bold text-green-400 text-sm">¡Venta registrada!</p>
-        <p className="text-xs text-slate-500">El sistema se actualizará en un momento</p>
+        <p className="font-bold text-amber-400 text-sm">¡Venta registrada!</p>
+        <p className="text-xs text-slate-400">Estado: <span className="text-amber-400 font-semibold">Pendiente de pago</span></p>
+        <p className="text-xs text-slate-500 max-w-[200px]">El admin confirmará el pago y enviará el ticket por email al cliente</p>
       </div>
     );
   }
@@ -368,6 +376,19 @@ function SalePanel({
             type="text" value={clientName}
             onChange={e => setClientName(e.target.value)}
             placeholder="Nombre completo"
+            className="form-input w-full text-sm"
+          />
+        </div>
+
+        {/* Email */}
+        <div>
+          <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+            Email cliente <span className="text-amber-500 normal-case font-normal">(para enviarle el ticket)</span>
+          </label>
+          <input
+            type="email" value={clientEmail}
+            onChange={e => setClientEmail(e.target.value)}
+            placeholder="correo@ejemplo.com"
             className="form-input w-full text-sm"
           />
         </div>
@@ -639,7 +660,7 @@ function PromotorPanel({ promotor, onLogout }: { promotor: Promotor; onLogout: (
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-white/5">
-                      {['Fecha', 'Cliente', 'DNI', 'Tipo', 'Box', 'Monto'].map(h => (
+                      {['Fecha', 'Cliente', 'Email', 'Tipo', 'Box', 'Monto', 'Estado'].map(h => (
                         <th key={h} className="text-left text-xs text-slate-500 font-semibold uppercase tracking-wider px-4 py-3">{h}</th>
                       ))}
                     </tr>
@@ -648,15 +669,29 @@ function PromotorPanel({ promotor, onLogout }: { promotor: Promotor; onLogout: (
                     {sales.map(sale => (
                       <tr key={sale.id} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
                         <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{fmtDate(sale.createdAt)}</td>
-                        <td className="px-4 py-3 text-white font-medium">{sale.clientName}</td>
-                        <td className="px-4 py-3 text-slate-400 text-xs">{sale.clientDni}</td>
+                        <td className="px-4 py-3 text-white font-medium">
+                          <p>{sale.clientName}</p>
+                          <p className="text-slate-500 text-xs">{sale.clientDni}</p>
+                        </td>
+                        <td className="px-4 py-3 text-slate-400 text-xs">{sale.clientEmail || '—'}</td>
                         <td className="px-4 py-3">
                           <span className="text-xs bg-white/[0.04] border border-white/8 rounded-full px-2 py-0.5 text-slate-300">
                             {SALE_TYPE_LABELS[sale.saleType]}
                           </span>
+                          {sale.boxId && <p className="text-slate-600 text-xs mt-0.5 font-mono">{sale.boxId}</p>}
                         </td>
-                        <td className="px-4 py-3 text-slate-400 text-xs font-mono">{sale.boxId || '—'}</td>
                         <td className="px-4 py-3 text-amber-400 font-bold">S/ {sale.price}</td>
+                        <td className="px-4 py-3">
+                          {(sale.status ?? 'pending') === 'confirmed' ? (
+                            <span className="text-xs font-bold text-green-400 bg-green-500/10 border border-green-500/30 rounded-full px-2 py-0.5">
+                              ✓ Confirmado
+                            </span>
+                          ) : (
+                            <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-0.5">
+                              Pendiente
+                            </span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

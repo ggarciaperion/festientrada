@@ -10,6 +10,7 @@ import {
   IS_BOX_SALE,
   type Promotor,
   type Sale,
+  type SaleType,
 } from '@/lib/promotors';
 
 export default function AdminPage() {
@@ -121,6 +122,36 @@ export default function AdminPage() {
     promotorService.deletePromotor(id);
     if (selectedPromotorId === id) setSelectedPromotorId(null);
     loadData();
+  };
+
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
+  const handleConfirmSale = async (sale: Sale) => {
+    if (!confirm(`¿Confirmar pago de ${sale.clientName} por S/ ${sale.price}?\nSe generará el QR y se enviará por email a ${sale.clientEmail}.`)) return;
+    setConfirmingId(sale.id);
+    try {
+      const res  = await fetch('/api/promotor/confirm-sale', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ sale }),
+      });
+      const data = await res.json() as { ok: boolean; ticketToken?: string; orderId?: string; error?: string };
+      if (data.ok && data.ticketToken) {
+        promotorService.updateSale(sale.id, {
+          status: 'confirmed',
+          ticketToken: data.ticketToken,
+          confirmedAt: new Date().toISOString(),
+        });
+        loadData();
+        alert(`✅ Pago confirmado. QR enviado a ${sale.clientEmail}`);
+      } else {
+        alert(`Error: ${data.error ?? 'No se pudo confirmar'}`);
+      }
+    } catch {
+      alert('Error de conexión');
+    } finally {
+      setConfirmingId(null);
+    }
   };
 
   const handleDeleteSale = async (saleId: string, boxId?: string) => {
@@ -444,35 +475,62 @@ export default function AdminPage() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-white/5">
-                            {['Fecha', 'Cliente', 'DNI', 'Tipo', 'Box', 'Monto', 'Notas', 'Acción'].map(h => (
+                            {['Fecha', 'Cliente', 'Email', 'Tipo', 'Box', 'Monto', 'Estado', 'Acciones'].map(h => (
                               <th key={h} className="text-left text-xs text-slate-500 font-semibold uppercase tracking-wider px-4 py-3">{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
-                          {sales.map(sale => (
-                            <tr key={sale.id} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
+                          {sales.map(sale => {
+                            const isPending = (sale.status ?? 'pending') === 'pending';
+                            return (
+                            <tr key={sale.id} className={`border-b border-white/[0.03] hover:bg-white/[0.02] ${isPending ? 'bg-amber-500/[0.02]' : ''}`}>
                               <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{fmtDate(sale.createdAt)}</td>
-                              <td className="px-4 py-3 text-white font-medium">{sale.clientName}</td>
-                              <td className="px-4 py-3 text-slate-400 text-xs">{sale.clientDni}</td>
+                              <td className="px-4 py-3 text-white font-medium">
+                                <p>{sale.clientName}</p>
+                                <p className="text-slate-500 text-xs">{sale.clientDni}</p>
+                              </td>
+                              <td className="px-4 py-3 text-slate-400 text-xs">{sale.clientEmail || '—'}</td>
                               <td className="px-4 py-3">
                                 <span className="text-xs bg-white/[0.04] border border-white/8 rounded-full px-2 py-0.5 text-slate-300">
                                   {SALE_TYPE_LABELS[sale.saleType]}
                                 </span>
+                                {sale.boxId && <p className="text-slate-600 text-xs mt-0.5 font-mono">{sale.boxId}</p>}
                               </td>
-                              <td className="px-4 py-3 text-slate-400 text-xs font-mono">{sale.boxId || '—'}</td>
                               <td className="px-4 py-3 text-amber-400 font-bold">S/ {sale.price}</td>
-                              <td className="px-4 py-3 text-slate-500 text-xs max-w-[120px] truncate">{sale.notes || '—'}</td>
                               <td className="px-4 py-3">
-                                <button
-                                  onClick={() => handleDeleteSale(sale.id, sale.boxId)}
-                                  className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded border border-red-500/30 hover:border-red-500/60 transition"
-                                >
-                                  Eliminar
-                                </button>
+                                {isPending ? (
+                                  <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-0.5">
+                                    🕐 Pendiente
+                                  </span>
+                                ) : (
+                                  <span className="text-xs font-bold text-green-400 bg-green-500/10 border border-green-500/30 rounded-full px-2 py-0.5">
+                                    ✓ Confirmado
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex gap-2 flex-wrap">
+                                  {isPending && (
+                                    <button
+                                      onClick={() => handleConfirmSale(sale)}
+                                      disabled={confirmingId === sale.id}
+                                      className="text-xs text-green-400 hover:text-green-300 px-2 py-1 rounded border border-green-500/40 hover:border-green-500/70 transition disabled:opacity-50 whitespace-nowrap"
+                                    >
+                                      {confirmingId === sale.id ? '...' : '✓ Confirmar pago'}
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleDeleteSale(sale.id, sale.boxId)}
+                                    className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded border border-red-500/30 hover:border-red-500/60 transition"
+                                  >
+                                    Eliminar
+                                  </button>
+                                </div>
                               </td>
                             </tr>
-                          ))}
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>

@@ -24,12 +24,16 @@ export interface Sale {
   promotorId: string;
   clientDni: string;
   clientName: string;
+  clientEmail: string;
   saleType: SaleType;
   zone: 'platinum' | 'vip' | 'malecon' | 'general';
   boxId?: string;
   entries: number;
   price: number;
   notes?: string;
+  status: 'pending' | 'confirmed';
+  ticketToken?: string;
+  confirmedAt?: string;
   createdAt: string;
 }
 
@@ -169,6 +173,11 @@ class PromotorService {
     list.push(sale);
     this.saveSales(list);
     return sale;
+  }
+
+  updateSale(id: string, changes: Partial<Omit<Sale, 'id' | 'createdAt'>>): void {
+    const list = this.getSales().map(s => s.id === id ? { ...s, ...changes } : s);
+    this.saveSales(list);
   }
 
   deleteSale(id: string): void {
