@@ -854,8 +854,7 @@ export default function AdminPage() {
 
         {/* Footer info */}
         <div className="mt-8 text-center text-slate-600 text-xs">
-          <p>💾 Los datos se almacenan localmente en localStorage del navegador</p>
-          <p className="mt-1">🔧 En producción, usar base de datos real (PostgreSQL, MySQL, MongoDB, etc.)</p>
+          <p>💾 Boxes · Promotores · Ventas → Redis (Upstash) · Validaciones QR → Redis</p>
         </div>
 
         </> }
