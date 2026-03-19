@@ -410,7 +410,7 @@ function PurchasePanel({
           {discount && (
             <div className="mb-3 flex items-center justify-between bg-gradient-to-r from-rose-600/25 to-rose-500/10 border border-rose-500/40 rounded-xl px-3 py-2">
               <p className="text-xs font-black text-white">Pre-venta · {DISCOUNT_LABEL}</p>
-              <span className="bg-rose-600 rounded-lg px-2.5 py-1 text-xs font-black text-white shadow shadow-rose-500/40">-30%</span>
+              <span className="bg-rose-600 rounded-lg px-2.5 py-1 text-xs font-black text-white shadow shadow-rose-500/40">-15%</span>
             </div>
           )}
           <div className="grid grid-cols-3 gap-1.5 mb-1">
@@ -489,7 +489,7 @@ function PurchasePanel({
           <div className="border-t border-white/10 pt-2 mt-2 flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-400">Box completo</p>
-              {discount && <span className="inline-block mt-1 bg-rose-600 rounded px-2 py-0.5 text-[9px] font-black text-white">-30% PRE-VENTA</span>}
+              {discount && <span className="inline-block mt-1 bg-rose-600 rounded px-2 py-0.5 text-[9px] font-black text-white">-15% PRE-VENTA</span>}
             </div>
             <div className="text-right">
               {discount && <p className="text-xs text-red-400 line-through font-semibold">S/ {origPrice}</p>}

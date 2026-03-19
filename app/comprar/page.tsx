@@ -214,12 +214,12 @@ function ComprarContent() {
               <div className="bg-gradient-to-r from-rose-600/30 to-rose-500/10 border border-rose-500/50 rounded-2xl px-5 py-4 flex items-center justify-between gap-4 shadow-lg shadow-rose-500/10">
                 <div>
                   <p className="font-heading font-black text-white text-lg leading-tight tracking-tight">
-                    Pre-venta · 30% de descuento
+                    Pre-venta · 15% de descuento
                   </p>
                   <p className="text-sm text-rose-300 mt-0.5">{DISCOUNT_LABEL} a las 12:00 pm</p>
                 </div>
                 <div className="flex-shrink-0 bg-rose-600 rounded-xl px-4 py-2.5 shadow-lg shadow-rose-600/40">
-                  <p className="font-heading font-black text-white text-2xl leading-none">-30%</p>
+                  <p className="font-heading font-black text-white text-2xl leading-none">-15%</p>
                 </div>
               </div>
             )}

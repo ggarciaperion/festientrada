@@ -5,7 +5,7 @@
 
 /** 25 mar 2026 12:00 pm Lima (UTC-5) = 17:00 UTC */
 export const DISCOUNT_DEADLINE = new Date('2026-03-25T17:00:00Z');
-export const DISCOUNT_RATE     = 0.30;
+export const DISCOUNT_RATE     = 0.15;
 export const DISCOUNT_LABEL    = 'Pre-venta hasta 25 de marzo';
 
 export function isDiscountActive(): boolean {
