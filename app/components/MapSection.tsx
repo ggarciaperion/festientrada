@@ -1010,7 +1010,7 @@ export default function MapSection() {
               <div key={s} className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-sm border" style={{ background: c.fill, borderColor: c.stroke }} />
                 <span className="text-xs text-slate-400">
-                  {s === 'available' ? 'Disponible' : s === 'temp_reserved' ? 'Reservado' : 'Vendido'}
+                  {s === 'available' ? 'Disponible' : s === 'temp_reserved' ? 'Reservado' : 'No disponible'}
                 </span>
               </div>
             ))}
