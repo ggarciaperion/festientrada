@@ -103,7 +103,9 @@ function SalePanel({
     ? BOX_PRICES[selectedBox.zone].full
     : mode === 'individual_form'
       ? (BOX_PRICES[zone as BoxZone]?.individual ?? 0)
-      : 0;
+      : mode === 'general_form'
+        ? 10
+        : 0;
   const unitPrice = getPrice(origUnitPrice);
   const price     = mode === 'individual_form' ? unitPrice * entries : unitPrice;
   const origPrice = mode === 'individual_form' ? origUnitPrice * entries : origUnitPrice;
