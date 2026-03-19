@@ -14,6 +14,7 @@ import {
   type BoxZone,
   type BoxStatus,
 } from '@/lib/boxes';
+import { isDiscountActive, getPrice, DISCOUNT_LABEL } from '@/lib/pricing';
 
 // ── Session helpers ───────────────────────────────────────────
 function getSessionId(): string {
@@ -123,12 +124,12 @@ function VenueMap({
 
       <rect x="220" y="70" width="370" height="18" fill="#1a1209" />
       <text x="405" y="83" textAnchor="middle" fontSize="8.5" fill="#D4A017" fontWeight="700" letterSpacing="1.5">
-        ★  PLATINUM — Box S/{BOX_PRICES.platinum.full}  ·  Entrada S/{BOX_PRICES.platinum.individual}
+        ★  PLATINUM — Box S/{getPrice(BOX_PRICES.platinum.full)}  ·  Entrada S/{getPrice(BOX_PRICES.platinum.individual)}
       </text>
       <line x1="220" y1="226" x2="590" y2="226" stroke="#334155" strokeWidth="1" strokeDasharray="4 3" />
       <rect x="220" y="233" width="370" height="14" fill="#0f0520" />
       <text x="405" y="244" textAnchor="middle" fontSize="8.5" fill="#a855f7" fontWeight="700" letterSpacing="1.5">
-        VIP — Box S/{BOX_PRICES.vip.full}  ·  Entrada S/{BOX_PRICES.vip.individual}
+        VIP — Box S/{getPrice(BOX_PRICES.vip.full)}  ·  Entrada S/{getPrice(BOX_PRICES.vip.individual)}
       </text>
 
       <rect x="30" y="395" width="560" height="125" fill="#0a0a14" />
@@ -388,7 +389,8 @@ function PurchasePanel({
     if (view === 'idle') { setForm({ name: '', email: '', phone: '', dni: '' }); setErrors({}); }
   }, [view]);
 
-  const pricePerUnit  = indZone === 'general' ? 10 : BOX_PRICES[indZone as BoxZone].individual;
+  const discount      = isDiscountActive();
+  const pricePerUnit  = indZone === 'general' ? getPrice(10) : getPrice(BOX_PRICES[indZone as BoxZone].individual);
   const indTotalPrice = pricePerUnit * indEntries;
 
   // ── IDLE ─────────────────────────────────────────────────
@@ -405,11 +407,17 @@ function PurchasePanel({
           <p className="text-xs text-slate-500 mb-3 leading-relaxed">
             Reserva un box para <strong className="text-slate-300">10 personas</strong>. Selecciona directamente en el mapa un box verde disponible.
           </p>
+          {discount && (
+            <div className="mb-2 inline-flex items-center gap-1 bg-amber-500/15 border border-amber-500/30 rounded-full px-2.5 py-1 text-[9px] font-bold text-amber-400 uppercase tracking-wide">
+              30% OFF · {DISCOUNT_LABEL}
+            </div>
+          )}
           <div className="grid grid-cols-3 gap-1.5 mb-1">
             {(['platinum', 'vip', 'malecon'] as BoxZone[]).map(z => (
               <div key={z} className="bg-white/[0.03] rounded-lg p-2 text-center border border-white/5">
                 <p className="text-[9px] font-bold uppercase" style={{ color: ZONE_COLORS[z].stroke }}>{ZONE_COLORS[z].label}</p>
-                <p className="text-white text-xs font-bold mt-0.5">S/ {BOX_PRICES[z].full}</p>
+                {discount && <p className="text-[8px] text-slate-500 line-through leading-none">S/ {BOX_PRICES[z].full}</p>}
+                <p className="text-white text-xs font-bold mt-0.5">S/ {getPrice(BOX_PRICES[z].full)}</p>
               </div>
             ))}
           </div>
@@ -428,12 +436,14 @@ function PurchasePanel({
             {(['platinum', 'vip', 'malecon'] as BoxZone[]).map(z => (
               <div key={z} className="bg-white/[0.03] rounded-lg p-2 text-center border border-white/5">
                 <p className="text-[9px] font-bold uppercase" style={{ color: ZONE_COLORS[z].stroke }}>{ZONE_COLORS[z].label}</p>
-                <p className="text-white text-xs font-bold mt-0.5">S/ {BOX_PRICES[z].individual} <span className="text-[9px] text-slate-500 font-normal">/ persona</span></p>
+                {discount && <p className="text-[8px] text-slate-500 line-through leading-none">S/ {BOX_PRICES[z].individual}</p>}
+                <p className="text-white text-xs font-bold mt-0.5">S/ {getPrice(BOX_PRICES[z].individual)} <span className="text-[9px] text-slate-500 font-normal">/ persona</span></p>
               </div>
             ))}
             <div className="bg-white/[0.03] rounded-lg p-2 text-center border border-white/5">
               <p className="text-[9px] font-bold uppercase text-blue-400">GENERAL</p>
-              <p className="text-white text-xs font-bold mt-0.5">S/ 10 <span className="text-[9px] text-slate-500 font-normal">/ persona</span></p>
+              {discount && <p className="text-[8px] text-slate-500 line-through leading-none">S/ 10</p>}
+              <p className="text-white text-xs font-bold mt-0.5">S/ {getPrice(10)} <span className="text-[9px] text-slate-500 font-normal">/ persona</span></p>
             </div>
           </div>
           <button onClick={onOpenIndividual} className="w-full btn-secondary py-2.5 text-sm justify-center">
@@ -446,8 +456,9 @@ function PurchasePanel({
 
   // ── BOX FORM ─────────────────────────────────────────────
   if (view === 'box_form' && selectedBox) {
-    const zone  = ZONE_COLORS[selectedBox.zone];
-    const price = BOX_PRICES[selectedBox.zone].full;
+    const zone      = ZONE_COLORS[selectedBox.zone];
+    const origPrice = BOX_PRICES[selectedBox.zone].full;
+    const price     = getPrice(origPrice);
 
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -475,8 +486,14 @@ function PurchasePanel({
             </div>
           </div>
           <div className="border-t border-white/10 pt-2 mt-2 flex items-center justify-between">
-            <p className="text-xs text-slate-400">Box completo</p>
-            <p className="font-heading font-black text-amber-400 text-xl">S/ {price}</p>
+            <div>
+              <p className="text-xs text-slate-400">Box completo</p>
+              {discount && <p className="text-[10px] text-amber-400/70 font-semibold">{DISCOUNT_LABEL}</p>}
+            </div>
+            <div className="text-right">
+              {discount && <p className="text-xs text-slate-500 line-through">S/ {origPrice}</p>}
+              <p className="font-heading font-black text-amber-400 text-xl">S/ {price}</p>
+            </div>
           </div>
         </div>
 
@@ -496,8 +513,9 @@ function PurchasePanel({
 
   // ── BOX RESERVED — proceder al pago ──────────────────────
   if (view === 'box_reserved' && selectedBox) {
-    const zone  = ZONE_COLORS[selectedBox.zone];
-    const price = BOX_PRICES[selectedBox.zone].full;
+    const zone      = ZONE_COLORS[selectedBox.zone];
+    const origPrice = BOX_PRICES[selectedBox.zone].full;
+    const price     = getPrice(origPrice);
 
     return (
       <div>
@@ -527,7 +545,10 @@ function PurchasePanel({
           ))}
           <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/8">
             <span className="text-white font-semibold">Total</span>
-            <span className="font-heading font-black text-2xl text-amber-400">S/ {price}</span>
+            <div className="text-right">
+              {discount && <p className="text-xs text-slate-500 line-through">S/ {origPrice}</p>}
+              <span className="font-heading font-black text-2xl text-amber-400">S/ {price}</span>
+            </div>
           </div>
         </div>
 
@@ -573,7 +594,7 @@ function PurchasePanel({
               const isBox = z !== 'general';
               const label = isBox ? ZONE_COLORS[z as BoxZone].label : 'GENERAL';
               const color = isBox ? ZONE_COLORS[z as BoxZone].stroke : '#3b82f6';
-              const price = isBox ? `S/ ${BOX_PRICES[z as BoxZone].individual}` : 'S/ 10';
+              const origAmt = isBox ? BOX_PRICES[z as BoxZone].individual : 10;
               return (
                 <button key={z} onClick={() => { setIndZone(z); setIndEntries(1); }}
                   className={`p-3 rounded-xl border-2 text-left transition-all ${
@@ -581,7 +602,8 @@ function PurchasePanel({
                   }`}
                   style={indZone === z ? { borderColor: `${color}88`, background: `${color}18` } : {}}>
                   <p className="text-[10px] font-bold uppercase" style={{ color }}>{label}</p>
-                  <p className="text-white text-sm font-bold mt-0.5">{price}</p>
+                  {discount && <p className="text-[9px] text-slate-500 line-through leading-none">S/ {origAmt}</p>}
+                  <p className="text-white text-sm font-bold mt-0.5">S/ {getPrice(origAmt)}</p>
                 </button>
               );
             })}
@@ -847,13 +869,13 @@ export default function MapSection() {
     saveReservation(selectedBox.id);
     setReservedMs(getReservationMs());
     setBuyerData(form);
-    setPurchaseCtx({ type: 'box', price: BOX_PRICES[selectedBox.zone].full });
+    setPurchaseCtx({ type: 'box', price: getPrice(BOX_PRICES[selectedBox.zone].full) });
     setView('box_reserved');
     load();
   };
 
   const handleIndividualProceed = (zone: BoxZone | 'general', entries: number, form: FormData) => {
-    const pricePerUnit = zone === 'general' ? 10 : BOX_PRICES[zone as BoxZone].individual;
+    const pricePerUnit = zone === 'general' ? getPrice(10) : getPrice(BOX_PRICES[zone as BoxZone].individual);
     setBuyerData(form);
     setPurchaseCtx({ type: 'individual', zone, entries, price: pricePerUnit * entries });
     setView('checkout');
@@ -1019,7 +1041,7 @@ export default function MapSection() {
                     {ZONE_COLORS[selectedBox.zone].label}
                   </span>
                 </div>
-                <p className="font-heading font-black text-amber-400">S/ {BOX_PRICES[selectedBox.zone].full}</p>
+                <p className="font-heading font-black text-amber-400">S/ {getPrice(BOX_PRICES[selectedBox.zone].full)}</p>
               </div>
             </div>
           )}

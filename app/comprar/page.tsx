@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { v4 as uuidv4 } from 'uuid';
 import { db, FESTIVAL_EVENT, type Ticket, type TicketEntry, type TicketType } from '@/lib/database';
+import { isDiscountActive, getPrice, DISCOUNT_LABEL } from '@/lib/pricing';
 import { generateQRCode, generateEntryURL } from '@/lib/qr-generator';
 
 /* ── Zone config ───────────────────────────────────────── */
@@ -112,9 +113,10 @@ function ComprarContent() {
   const [showModal,  setShowModal]  = useState(false);
   const [processing, setProcessing] = useState(false);
 
-  const prices    = FESTIVAL_EVENT.prices;
-  const unitPrice = prices[zone];
-  const total     = unitPrice * quantity;
+  const prices     = FESTIVAL_EVENT.prices;
+  const discount   = isDiscountActive();
+  const unitPrice  = getPrice(prices[zone]);
+  const total      = unitPrice * quantity;
   const cfg       = ZONE_CONFIG[zone];
 
   /* Scroll al tope al abrir modal */
@@ -209,9 +211,16 @@ function ComprarContent() {
 
             {/* Zone selector */}
             <div className="card p-6">
-              <h2 className="font-heading font-bold text-white text-sm mb-4 uppercase tracking-wider">
-                1. Selecciona tu zona
-              </h2>
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+                <h2 className="font-heading font-bold text-white text-sm uppercase tracking-wider">
+                  1. Selecciona tu zona
+                </h2>
+                {discount && (
+                  <span className="inline-flex items-center gap-1 bg-amber-500/15 border border-amber-500/30 rounded-full px-3 py-1 text-[10px] font-bold text-amber-400 uppercase tracking-wide">
+                    30% OFF · {DISCOUNT_LABEL}
+                  </span>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 {(Object.entries(ZONE_CONFIG) as [TicketType, typeof ZONE_CONFIG[TicketType]][]).map(([type, c]) => (
                   <label
@@ -235,11 +244,18 @@ function ComprarContent() {
                       </p>
                       <p className="text-[11px] text-slate-500 truncate">{c.label}</p>
                     </div>
-                    <span className={`font-heading font-bold text-sm flex-shrink-0 ${
-                      zone === type ? c.text : 'text-slate-400'
-                    }`}>
-                      S/ {prices[type]}
-                    </span>
+                    <div className="flex flex-col items-end flex-shrink-0">
+                      {discount && (
+                        <span className="text-[9px] text-slate-500 line-through leading-none">
+                          S/ {prices[type]}
+                        </span>
+                      )}
+                      <span className={`font-heading font-bold text-sm ${
+                        zone === type ? c.text : 'text-slate-400'
+                      }`}>
+                        S/ {getPrice(prices[type])}
+                      </span>
+                    </div>
                   </label>
                 ))}
               </div>
@@ -350,7 +366,7 @@ function ComprarContent() {
                   { label: 'Lugar',     value: 'Malecón de Chancay' },
                   { label: 'Zona',      value: cfg.name,    special: cfg.text },
                   { label: 'Cantidad',  value: `${quantity}` },
-                  { label: 'P. unitario', value: `S/ ${unitPrice}` },
+                  { label: 'P. unitario', value: `S/ ${unitPrice}${discount ? ` (antes S/ ${prices[zone]})` : ''}` },
                 ].map(({ label, value, special }) => (
                   <div key={label} className="flex justify-between">
                     <span className="text-slate-400">{label}</span>
