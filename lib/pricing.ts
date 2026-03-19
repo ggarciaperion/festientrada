@@ -12,9 +12,9 @@ export function isDiscountActive(): boolean {
   return Date.now() < DISCOUNT_DEADLINE.getTime();
 }
 
-/** Precio con descuento, redondeado al entero más cercano */
+/** Precio con descuento, con 2 decimales */
 export function discountedPrice(price: number): number {
-  return Math.round(price * (1 - DISCOUNT_RATE));
+  return Math.round(price * (1 - DISCOUNT_RATE) * 100) / 100;
 }
 
 /** Precio efectivo: descontado si la promo está activa, original si no */
