@@ -81,11 +81,13 @@ export default function AudioPlayer() {
     curAudio.current = audio;
     curIdx.current   = 0;
 
-    // Touch-play every subsequent track (volume 0) so iOS marks them as
+    // Touch-play every subsequent track (muted) so iOS marks them as
     // "activated by user gesture" — then immediately pause & rewind.
+    // Using `muted` instead of `volume = 0` guarantees silence on all
+    // mobile browsers before the async pause fires.
     audios.slice(1).forEach(a => {
-      a.volume = 0;
-      a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+      a.muted = true;
+      a.play().then(() => { a.pause(); a.muted = false; a.currentTime = 0; }).catch(() => {});
     });
 
     audio.play()
