@@ -209,18 +209,26 @@ function ComprarContent() {
           {/* ── Left: Form ────────────────────────────────────── */}
           <div className="lg:col-span-2 space-y-5">
 
+            {/* Discount banner */}
+            {discount && (
+              <div className="bg-gradient-to-r from-rose-600/30 to-rose-500/10 border border-rose-500/50 rounded-2xl px-5 py-4 flex items-center justify-between gap-4 shadow-lg shadow-rose-500/10">
+                <div>
+                  <p className="font-heading font-black text-white text-lg leading-tight tracking-tight">
+                    Pre-venta · 30% de descuento
+                  </p>
+                  <p className="text-sm text-rose-300 mt-0.5">{DISCOUNT_LABEL} a las 12:00 pm</p>
+                </div>
+                <div className="flex-shrink-0 bg-rose-600 rounded-xl px-4 py-2.5 shadow-lg shadow-rose-600/40">
+                  <p className="font-heading font-black text-white text-2xl leading-none">-30%</p>
+                </div>
+              </div>
+            )}
+
             {/* Zone selector */}
             <div className="card p-6">
-              <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
-                <h2 className="font-heading font-bold text-white text-sm uppercase tracking-wider">
-                  1. Selecciona tu zona
-                </h2>
-                {discount && (
-                  <span className="inline-flex items-center gap-1 bg-amber-500/15 border border-amber-500/30 rounded-full px-3 py-1 text-[10px] font-bold text-amber-400 uppercase tracking-wide">
-                    30% OFF · {DISCOUNT_LABEL}
-                  </span>
-                )}
-              </div>
+              <h2 className="font-heading font-bold text-white text-sm uppercase tracking-wider mb-4">
+                1. Selecciona tu zona
+              </h2>
               <div className="grid grid-cols-2 gap-3">
                 {(Object.entries(ZONE_CONFIG) as [TicketType, typeof ZONE_CONFIG[TicketType]][]).map(([type, c]) => (
                   <label
@@ -246,7 +254,7 @@ function ComprarContent() {
                     </div>
                     <div className="flex flex-col items-end flex-shrink-0">
                       {discount && (
-                        <span className="text-[9px] text-slate-500 line-through leading-none">
+                        <span className="text-[9px] text-red-400 line-through leading-none font-semibold">
                           S/ {prices[type]}
                         </span>
                       )}

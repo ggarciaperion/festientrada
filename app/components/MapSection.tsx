@@ -408,15 +408,16 @@ function PurchasePanel({
             Reserva un box para <strong className="text-slate-300">10 personas</strong>. Selecciona directamente en el mapa un box verde disponible.
           </p>
           {discount && (
-            <div className="mb-2 inline-flex items-center gap-1 bg-amber-500/15 border border-amber-500/30 rounded-full px-2.5 py-1 text-[9px] font-bold text-amber-400 uppercase tracking-wide">
-              30% OFF · {DISCOUNT_LABEL}
+            <div className="mb-3 flex items-center justify-between bg-gradient-to-r from-rose-600/25 to-rose-500/10 border border-rose-500/40 rounded-xl px-3 py-2">
+              <p className="text-xs font-black text-white">Pre-venta · {DISCOUNT_LABEL}</p>
+              <span className="bg-rose-600 rounded-lg px-2.5 py-1 text-xs font-black text-white shadow shadow-rose-500/40">-30%</span>
             </div>
           )}
           <div className="grid grid-cols-3 gap-1.5 mb-1">
             {(['platinum', 'vip', 'malecon'] as BoxZone[]).map(z => (
               <div key={z} className="bg-white/[0.03] rounded-lg p-2 text-center border border-white/5">
                 <p className="text-[9px] font-bold uppercase" style={{ color: ZONE_COLORS[z].stroke }}>{ZONE_COLORS[z].label}</p>
-                {discount && <p className="text-[8px] text-slate-500 line-through leading-none">S/ {BOX_PRICES[z].full}</p>}
+                {discount && <p className="text-[8px] text-red-400 line-through font-semibold leading-none">S/ {BOX_PRICES[z].full}</p>}
                 <p className="text-white text-xs font-bold mt-0.5">S/ {getPrice(BOX_PRICES[z].full)}</p>
               </div>
             ))}
@@ -436,13 +437,13 @@ function PurchasePanel({
             {(['platinum', 'vip', 'malecon'] as BoxZone[]).map(z => (
               <div key={z} className="bg-white/[0.03] rounded-lg p-2 text-center border border-white/5">
                 <p className="text-[9px] font-bold uppercase" style={{ color: ZONE_COLORS[z].stroke }}>{ZONE_COLORS[z].label}</p>
-                {discount && <p className="text-[8px] text-slate-500 line-through leading-none">S/ {BOX_PRICES[z].individual}</p>}
+                {discount && <p className="text-[8px] text-red-400 line-through font-semibold leading-none">S/ {BOX_PRICES[z].individual}</p>}
                 <p className="text-white text-xs font-bold mt-0.5">S/ {getPrice(BOX_PRICES[z].individual)} <span className="text-[9px] text-slate-500 font-normal">/ persona</span></p>
               </div>
             ))}
             <div className="bg-white/[0.03] rounded-lg p-2 text-center border border-white/5">
               <p className="text-[9px] font-bold uppercase text-blue-400">GENERAL</p>
-              {discount && <p className="text-[8px] text-slate-500 line-through leading-none">S/ 10</p>}
+              {discount && <p className="text-[8px] text-red-400 line-through font-semibold leading-none">S/ 10</p>}
               <p className="text-white text-xs font-bold mt-0.5">S/ {getPrice(10)} <span className="text-[9px] text-slate-500 font-normal">/ persona</span></p>
             </div>
           </div>
@@ -488,10 +489,10 @@ function PurchasePanel({
           <div className="border-t border-white/10 pt-2 mt-2 flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-400">Box completo</p>
-              {discount && <p className="text-[10px] text-amber-400/70 font-semibold">{DISCOUNT_LABEL}</p>}
+              {discount && <span className="inline-block mt-1 bg-rose-600 rounded px-2 py-0.5 text-[9px] font-black text-white">-30% PRE-VENTA</span>}
             </div>
             <div className="text-right">
-              {discount && <p className="text-xs text-slate-500 line-through">S/ {origPrice}</p>}
+              {discount && <p className="text-xs text-red-400 line-through font-semibold">S/ {origPrice}</p>}
               <p className="font-heading font-black text-amber-400 text-xl">S/ {price}</p>
             </div>
           </div>
@@ -546,7 +547,7 @@ function PurchasePanel({
           <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/8">
             <span className="text-white font-semibold">Total</span>
             <div className="text-right">
-              {discount && <p className="text-xs text-slate-500 line-through">S/ {origPrice}</p>}
+              {discount && <p className="text-xs text-red-400 line-through font-semibold">S/ {origPrice}</p>}
               <span className="font-heading font-black text-2xl text-amber-400">S/ {price}</span>
             </div>
           </div>
@@ -602,7 +603,7 @@ function PurchasePanel({
                   }`}
                   style={indZone === z ? { borderColor: `${color}88`, background: `${color}18` } : {}}>
                   <p className="text-[10px] font-bold uppercase" style={{ color }}>{label}</p>
-                  {discount && <p className="text-[9px] text-slate-500 line-through leading-none">S/ {origAmt}</p>}
+                  {discount && <p className="text-[9px] text-red-400 line-through font-semibold leading-none">S/ {origAmt}</p>}
                   <p className="text-white text-sm font-bold mt-0.5">S/ {getPrice(origAmt)}</p>
                 </button>
               );
