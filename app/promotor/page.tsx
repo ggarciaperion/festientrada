@@ -17,6 +17,7 @@ import {
   type BoxStatus,
   type BoxZone,
 } from '@/lib/boxes';
+import { isDiscountActive, getPrice, DISCOUNT_LABEL } from '@/lib/pricing';
 
 // ── Icons ─────────────────────────────────────────────────────
 function IconLock()    { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>; }
@@ -97,12 +98,15 @@ function SalePanel({
   const [error,       setError]       = useState('');
 
   // Computed price — never editable
-  const unitPrice = mode === 'box_form' && selectedBox
+  const discount     = isDiscountActive();
+  const origUnitPrice = mode === 'box_form' && selectedBox
     ? BOX_PRICES[selectedBox.zone].full
     : mode === 'individual_form'
       ? (BOX_PRICES[zone as BoxZone]?.individual ?? 0)
       : 0;
-  const price = mode === 'individual_form' ? unitPrice * entries : unitPrice;
+  const unitPrice = getPrice(origUnitPrice);
+  const price     = mode === 'individual_form' ? unitPrice * entries : unitPrice;
+  const origPrice = mode === 'individual_form' ? origUnitPrice * entries : origUnitPrice;
 
   const resetForm = () => {
     setClientDni(''); setClientName(''); setClientEmail('');
@@ -174,6 +178,17 @@ function SalePanel({
   if (mode === 'idle') {
     return (
       <div className="flex flex-col gap-3 py-4">
+        {discount && (
+          <div className="bg-gradient-to-r from-rose-600/25 to-rose-500/10 border border-rose-500/40 rounded-xl px-4 py-3 flex items-center justify-between gap-3 mb-1">
+            <div>
+              <p className="font-black text-white text-sm leading-tight">Pre-venta · 15% OFF</p>
+              <p className="text-xs text-rose-300 mt-0.5">{DISCOUNT_LABEL} a las 12:00 pm</p>
+            </div>
+            <div className="flex-shrink-0 bg-rose-600 rounded-lg px-3 py-1.5 shadow shadow-rose-600/40">
+              <p className="font-black text-white text-lg leading-none">-15%</p>
+            </div>
+          </div>
+        )}
         <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Registrar venta</p>
         <button onClick={() => onModeChange('selecting_box')}
           className="w-full text-left p-4 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-amber-500/10 hover:border-amber-500/30 transition group">
@@ -257,9 +272,9 @@ function SalePanel({
             <select value={zone} onChange={e => setZone(e.target.value as BoxZone | 'general')} className="form-input w-full text-sm">
               {isIndividual ? (
                 <>
-                  <option value="platinum">Platinum — S/ {BOX_PRICES.platinum.individual}</option>
-                  <option value="vip">VIP — S/ {BOX_PRICES.vip.individual}</option>
-                  <option value="malecon">Malecón — S/ {BOX_PRICES.malecon.individual}</option>
+                  <option value="platinum">Platinum — S/ {getPrice(BOX_PRICES.platinum.individual)}{discount ? ` (antes S/ ${BOX_PRICES.platinum.individual})` : ''}</option>
+                  <option value="vip">VIP — S/ {getPrice(BOX_PRICES.vip.individual)}{discount ? ` (antes S/ ${BOX_PRICES.vip.individual})` : ''}</option>
+                  <option value="malecon">Malecón — S/ {getPrice(BOX_PRICES.malecon.individual)}{discount ? ` (antes S/ ${BOX_PRICES.malecon.individual})` : ''}</option>
                 </>
               ) : <option value="general">General</option>}
             </select>
@@ -299,7 +314,12 @@ function SalePanel({
             Precio total (S/)
           </label>
           <div className="form-input w-full text-sm bg-white/[0.02] cursor-default select-none flex items-center justify-between">
-            <span className="text-amber-400 font-bold">S/ {price.toFixed(2)}</span>
+            <div className="flex items-center gap-2">
+              {discount && origPrice > 0 && (
+                <span className="text-red-400 font-semibold line-through text-xs">S/ {origPrice}</span>
+              )}
+              <span className="text-amber-400 font-bold">S/ {price.toFixed(2)}</span>
+            </div>
             {isIndividual && entries > 1 && (
               <span className="text-slate-500 text-xs">S/ {unitPrice} × {entries}</span>
             )}
