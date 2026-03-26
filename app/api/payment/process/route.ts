@@ -61,13 +61,11 @@ export async function POST(req: NextRequest) {
     },
     body: JSON.stringify({
       transaction_amount: body.amount,
-      currency_id:        'PEN',
       token:              body.formData.token,
       payment_method_id:  body.formData.paymentMethodId,
       installments:       body.formData.installments ?? 1,
       description:        `Festival de Salsa y Timba · ${body.purchaseDetails.zone} · ${body.purchaseDetails.type}`,
       external_reference: orderId,
-      three_d_secure_mode: 'optional',
       payer: {
         email:      body.buyerInfo.email,
         first_name: firstName,
@@ -116,10 +114,23 @@ export async function POST(req: NextRequest) {
     id?:            number;
     error?:         string;
     message?:       string;
+    cause?:         { code: number; description: string }[];
   };
 
-  if (mpData.status !== 'approved') {
-    console.error('MP payment not approved:', mpData);
+  console.log('MP response:', JSON.stringify({ status: mpData.status, status_detail: mpData.status_detail, error: mpData.error, message: mpData.message, cause: mpData.cause, httpStatus: mpRes.status }));
+
+  // Error a nivel de API de MP (400, 422, etc.) — no es un rechazo de tarjeta
+  if (!mpRes.ok && !mpData.status) {
+    const cause = mpData.cause?.[0]?.description ?? mpData.message ?? mpData.error ?? 'Error de configuración';
+    console.error('MP API error:', mpData);
+    return NextResponse.json({ ok: false, error: `Pago no aprobado: ${cause}` });
+  }
+
+  // Pagos aprobados o en revisión (pending/in_process) se consideran exitosos
+  if (mpData.status === 'approved' || mpData.status === 'in_process' || mpData.status === 'pending') {
+    // continúa a generar ticket
+  } else {
+    console.error('MP payment rejected:', mpData);
     const detail = mpData.status_detail ?? mpData.message ?? mpData.status ?? 'rechazado';
     return NextResponse.json({ ok: false, error: `Pago no aprobado: ${detail}` });
   }
